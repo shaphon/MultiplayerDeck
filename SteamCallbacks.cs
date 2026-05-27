@@ -72,14 +72,14 @@ namespace MultiplayerDeck
                 {
                     Debug.Log("MakeCurrentLobby:Success");
                 }
-                TogetherManager.players = TogetherManager.currentLobby.getLobbyMembers();
-                NetworkHelper.sendData(NetworkHelper.dataType.Version);
+                TogetherManager.players = TogetherManager.currentLobby.GetLobbyMembers();
+                NetworkHelper.SendData(NetDataType.Version);
             }
             else
             {
                 Debug.Log(">>>");
             }
-            NetworkHelper.sendData(NetworkHelper.dataType.Version);
+            NetworkHelper.SendData(NetDataType.Version);
         }
 
         public static void onLobbyEnter(LobbyEnter_t callback)
@@ -104,31 +104,31 @@ namespace MultiplayerDeck
         {
             if ((int)even == 1)
             {
-                NetworkHelper.addPlayer(new RemotePlayer(targetPlayer));
-                NetworkHelper.sendData(NetworkHelper.dataType.Version);
-                NetworkHelper.sendData(NetworkHelper.dataType.Ready);
+                NetworkHelper.AddPlayer(new RemotePlayer(targetPlayer));
+                NetworkHelper.SendData(NetDataType.Version);
+                NetworkHelper.SendData(NetDataType.Ready);
             }
-            RemotePlayer player = SteamIntegration.getPlayer(targetPlayer);
+            RemotePlayer player = SteamIntegration.GetPlayer(targetPlayer);
             if ((int)even == 2)
             {
-                NetworkHelper.removePlayer(player);
+                NetworkHelper.RemovePlayer(player);
             }
             if ((int)even == 4)
             {
-                NetworkHelper.removePlayer(player);
+                NetworkHelper.RemovePlayer(player);
             }
             if ((int)even == 8)
             {
-                NetworkHelper.removePlayer(player);
+                NetworkHelper.RemovePlayer(player);
             }
             if ((int)even == 16)
             {
-                NetworkHelper.removePlayer(player);
+                NetworkHelper.RemovePlayer(player);
             }
-            TogetherManager.currentLobby.getOwnerName();
-            if (TogetherManager.currentLobby.isOwner())
+            TogetherManager.currentLobby.GetOwnerName();
+            if (TogetherManager.currentLobby.IsOwner())
             {
-                SteamMatchmaking.SetLobbyData(lobby, "members", TogetherManager.currentLobby.getMemberNameList());
+                SteamMatchmaking.SetLobbyData(lobby, "members", TogetherManager.currentLobby.GetMemberNameList());
             }
         }
 
@@ -173,9 +173,9 @@ namespace MultiplayerDeck
                 lobby.ToString()
             }));
             TogetherManager.currentLobby = new SteamLobby(NetworkHelper.steam, new CSteamID(lobby));
-            NetworkHelper.updateLobbyData();
-            NetworkHelper.addPlayer(new RemotePlayer(SteamMatchmaking.GetLobbyOwner(new CSteamID(lobby))));
-            NetworkHelper.sendData(NetworkHelper.dataType.Version);
+            NetworkHelper.UpdateLobbyData();
+            NetworkHelper.AddPlayer(new RemotePlayer(SteamMatchmaking.GetLobbyOwner(new CSteamID(lobby))));
+            NetworkHelper.SendData(NetDataType.Version);
         }
 
         public static void onLobbyCreated(LobbyCreated_t callback)
@@ -186,10 +186,10 @@ namespace MultiplayerDeck
         public static void onGameLobbyJoinRequested(CSteamID steamIDLobby, CSteamID steamIDFriend)
         {
             Debug.Log("Entered via invite/join - " + steamIDLobby.ToString() + " - ID: " + steamIDLobby.ToString());
-            TogetherManager.clearMultiplayerData();
+            TogetherManager.ClearMultiplayerData();
             SteamMatchmaking.JoinLobby(steamIDLobby);
             TogetherManager.currentLobby = new SteamLobby(NetworkHelper.steam, steamIDLobby);
-            TogetherManager.players = TogetherManager.currentLobby.getLobbyMembers();
+            TogetherManager.players = TogetherManager.currentLobby.GetLobbyMembers();
         }
 
         public static void onGameLobbyJoinRequested(GameLobbyJoinRequested_t callback)
@@ -200,7 +200,7 @@ namespace MultiplayerDeck
         public static void onAvatarImageLoaded(CSteamID steamID, int image, int width, int height)
         {
             Debug.Log("Steam Avatar is downloaded! " + steamID.ToString() + " - size: " + width);
-            SteamIntegration.getPlayer(steamID)?.updateAvatar(image);
+            SteamIntegration.GetPlayer(steamID)?.UpdateAvatar(image);
         }
 
         public static void onAvatarImageLoaded(AvatarImageLoaded_t callback)
@@ -213,7 +213,7 @@ namespace MultiplayerDeck
             if ((int)change == 64)
             {
                 Debug.Log("Steam Avatar is available: " + steamID);
-                SteamIntegration.getPlayer(new CSteamID(steamID))?.getAvatar();
+                SteamIntegration.GetPlayer(new CSteamID(steamID))?.GetAvatar();
             }
         }
 

@@ -14,21 +14,21 @@ namespace MultiplayerDeck
 
 		public Texture2D pixmap;
 
-		public RemotePlayer(CSteamID steamuser)
+		public RemotePlayer(CSteamID steamUser)
 		{
-			steamUser = steamuser;
-			userName = SteamFriends.GetFriendPersonaName(steamUser).Trim();
-			getAvatar();
+			this.steamUser = steamUser;
+            userName = SteamFriends.GetFriendPersonaName(this.steamUser).Trim();
+			GetAvatar();
 		}
 
-		public void getAvatar()
+		public void GetAvatar()
 		{
 			bool flag = SteamFriends.RequestUserInformation(steamUser, false);
 			int largeFriendAvatar = SteamFriends.GetLargeFriendAvatar(steamUser);
-			updateAvatar(largeFriendAvatar);
+			UpdateAvatar(largeFriendAvatar);
 		}
 
-		public void updateAvatar(int imageID)
+		public void UpdateAvatar(int imageID)
 		{
 			Debug.Log("~~~~~~~~~~~~~~~~~~~~~ Starting Steam Avatar ~~~~~~~~~~~~~~~~~~~~~");
 			Debug.Log("ImageID: " + imageID);
@@ -56,12 +56,12 @@ namespace MultiplayerDeck
 			}
 		}
 
-		public bool isUser(CSteamID player)
+		public bool IsUser(CSteamID player)
 		{
 			return steamUser.GetAccountID() == player.GetAccountID();
 		}
 
-		public AccountID_t getAccountID()
+		public AccountID_t GetAccountID()
 		{
 			return steamUser.GetAccountID();
 		}

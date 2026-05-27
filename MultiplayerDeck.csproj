@@ -3,7 +3,7 @@
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
     <OutputType>Library</OutputType>
-    <AssemblyName>MultiplayerDeck2026523205259</AssemblyName>
+    <AssemblyName>MultiplayerDeck202652612017</AssemblyName>
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <OutputPath>bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
@@ -385,12 +385,11 @@
       <Private>False</Private>
     </Reference>
     <!-- Extra Reference Start-->
-    <!-- Extra Reference End-->
+<!-- Extra Reference End-->
   </ItemGroup>
-  <!-- Compile ItemGroup Start-->
+                                                  <!-- Compile ItemGroup Start-->
   <ItemGroup>
-    <Compile Include="GiantNet.cs" />
-    <Compile Include="MultiplayerBattleSync.cs" />
+    <Compile Include="BattleSyncManager.cs" />
     <Compile Include="MultiplayerDeck_ModDefinition.cs" />
     <Compile Include="MultiplayerDeck_ModItemKeys.cs" />
     <Compile Include="MultiplayerDeck_Plugin.cs" />
@@ -398,10 +397,14 @@
     <Compile Include="Packet.cs" />
     <Compile Include="RemotePlayer.cs" />
     <Compile Include="SkillSerializer.cs" />
+    <Compile Include="StageMapSyncHelper.cs" />
+    <Compile Include="StageSyncManager.cs" />
     <Compile Include="SteamCallbacks.cs" />
     <Compile Include="SteamIntegration.cs" />
     <Compile Include="SteamLobby.cs" />
     <Compile Include="TogetherManager.cs" />
+    <Compile Include="VoteManager.cs" />
+    <Compile Include="Buff\B_MultiplayerDeck_LifeLink.cs" />
     <Compile Include="obj\Debug\.NETFramework,Version=v4.7.2.AssemblyAttributes.cs" />
   </ItemGroup>
   <!-- Compile ItemGroup End-->

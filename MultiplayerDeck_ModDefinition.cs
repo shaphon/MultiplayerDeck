@@ -1,17 +1,19 @@
-using UnityEngine;
-using UnityEngine.UI;
-using System;
-using System.Linq;
-using System.Collections;
-using System.Collections.Generic;
-using GameDataEditor;
-using I2.Loc;
-using DarkTonic.MasterAudio;
 using ChronoArkMod;
+using ChronoArkMod.ModData;
 using ChronoArkMod.Plugin;
 using ChronoArkMod.Template;
+using DarkTonic.MasterAudio;
+using GameDataEditor;
+using I2.Loc;
+using Spine;
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using UnityEngine;
+using UnityEngine.UI;
 using Debug = UnityEngine.Debug;
-using ChronoArkMod.ModData;
 namespace MultiplayerDeck
 {
     public class MultiplayerDeck_ModDefinition : ModDefinition
@@ -22,12 +24,45 @@ namespace MultiplayerDeck
 
         public override List<object> BattleSystem_ModIReturn(Type type)
         {
+            if (!MultiplayerDeck_Plugin.IsMultiplayer)
+            {
+                return base.BattleSystem_ModIReturn();
+            }
+
             List<object> list = new List<object>();
-            if (type == typeof(IP_BattleStart_Ones) || type == typeof(IP_Draw) || type == typeof(IP_SkillUseHand_Team))
+            if (type == typeof(IP_EnemyAwake) || type == typeof(IP_PlayerTurn) || type == typeof(IP_ParticleOut_After_Global))
             {
                 list.Add(BattleSync);
             }
             return list;
+        }
+    }
+
+    public class BattleSyncPassive : IP_EnemyAwake, IP_PlayerTurn, IP_ParticleOut_After_Global
+    {
+        public void EnemyAwake(BattleChar Enemy)
+        {
+            Enemy.BuffAdd(ModItemKeys.Buff_B_MultiplayerDeck_LifeLink, Enemy, false, 0, false, -1, true);
+        }
+
+        public void Turn()
+        {
+            VoteManager.Instance.StartVote(VoteManager.VoteTheme.TurnEnd, TurnEnd);
+        }
+
+        public IEnumerator ParticleOut_After_Global(Skill SkillD, List<BattleChar> Targets)
+        {
+            NetworkHelper.SendSkillPlayed(SkillD.MySkill.Name);
+            yield break;
+        }
+
+        private void TurnEnd()
+        {
+            BattleSystem.instance.TargetSelectCancel();
+            BattleSystem.instance.ActWindow.WasteButton.Quit();
+            BattleSystem.instance.ActWindow.On = false;
+            BattleSystem.instance.ActWindow.TurnEndFlag = true;
+            BattleSystem.instance.StartCoroutine(BattleSystem.instance.EnemyTurn(true));
         }
     }
 }

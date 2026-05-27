@@ -8,11 +8,11 @@ namespace MultiplayerDeck
 	{
 		public static int channel;
 
-		public static RemotePlayer getPlayer(CSteamID steamID)
+		public static RemotePlayer GetPlayer(CSteamID steamID)
 		{
 			foreach (RemotePlayer player in TogetherManager.players)
 			{
-				if (player.isUser(steamID))
+				if (player.IsUser(steamID))
 				{
 					return player;
 				}
@@ -20,35 +20,35 @@ namespace MultiplayerDeck
 			return null;
 		}
 
-		public RemotePlayer makeCurrentUser()
+		public RemotePlayer MakeCurrentUser()
 		{
 			return new RemotePlayer(SteamUser.GetSteamID());
 		}
 
-		public void createLobby()
+		public void CreateLobby()
 		{
 			SteamMatchmaking.CreateLobby((ELobbyType)2, 4);
 		}
 
-		public void setLobbyPrivate(bool priv)
+		public void SetLobbyPrivate(bool priv)
 		{
 			if (priv)
 			{
-				SteamMatchmaking.SetLobbyType(TogetherManager.currentLobby.getID(), (ELobbyType)1);
+				SteamMatchmaking.SetLobbyType(TogetherManager.currentLobby.GetID(), (ELobbyType)1);
 			}
 			else
 			{
-				SteamMatchmaking.SetLobbyType(TogetherManager.currentLobby.getID(), (ELobbyType)2);
+				SteamMatchmaking.SetLobbyType(TogetherManager.currentLobby.GetID(), (ELobbyType)2);
 			}
 		}
 
-		public void getLobbies()
+		public void GetLobbies()
 		{
 			SteamMatchmaking.AddRequestLobbyListDistanceFilter((ELobbyDistanceFilter)3);
 			SteamMatchmaking.RequestLobbyList();
 		}
 
-		public void getPacket(Packet packet)
+		public void GetPacket(Packet packet)
 		{
 			uint num = default(uint);
 			SteamNetworking.IsP2PPacketAvailable(out num, channel);
@@ -66,18 +66,18 @@ namespace MultiplayerDeck
 				{
 					Debug.Log("Reading the packet failed: " + ex.Message);
 					Debug.LogError("Reading the packet failed: " + ex.Message);
-					packet.clear();
+					packet.Clear();
 					return;
 				}
-				packet.set(getPlayer(steamID), array);
+				packet.Set(GetPlayer(steamID), array);
 			}
 			else
 			{
-				packet.clear();
+				packet.Clear();
 			}
 		}
 
-		public void sendPacket(byte[] data)
+		public void SendPacket(byte[] data)
 		{
 			foreach (RemotePlayer player in TogetherManager.players)
 			{
@@ -92,7 +92,7 @@ namespace MultiplayerDeck
 			}
 		}
 
-		public void messageUser(RemotePlayer player)
+		public void MessageUser(RemotePlayer player)
 		{
 			SteamFriends.ActivateGameOverlayToUser("Chat", player.steamUser);
 		}

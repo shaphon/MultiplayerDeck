@@ -10,11 +10,11 @@ namespace MultiplayerDeck
 
 		public static List<RemotePlayer> players = new List<RemotePlayer>();
 
-		public static RemotePlayer getCurrentUser()
+		public static RemotePlayer GetCurrentUser()
 		{
 			foreach (RemotePlayer player in players)
 			{
-				if (player.isUser(currentUser.steamUser))
+				if (player.IsUser(currentUser.steamUser))
 				{
 					return player;
 				}
@@ -22,7 +22,7 @@ namespace MultiplayerDeck
 			return currentUser;
 		}
 
-		public static void clearMultiplayerData()
+		public static void ClearMultiplayerData()
 		{
 			currentLobby = null;
 			players.Clear();

@@ -14,22 +14,22 @@ namespace MultiplayerDeck
 
 		public Packet()
 		{
-			clear();
+			Clear();
 		}
 
-		public void clear()
+		public void Clear()
 		{
 			data = null;
 			player = null;
 		}
 
-		public void set(RemotePlayer player, byte[] data)
+		public void Set(RemotePlayer player, byte[] data)
 		{
 			this.data = data;
 			this.player = player;
 		}
 
-		public bool hasPacket()
+		public bool HasPacket()
 		{
 			if (data == null || player == null)
 			{
@@ -38,12 +38,12 @@ namespace MultiplayerDeck
 			return true;
 		}
 
-		public RemotePlayer getplayer()
+		public RemotePlayer GetPlayer()
 		{
 			return player;
 		}
 
-		public byte[] getdata()
+		public byte[] GetData()
 		{
 			return data;
 		}

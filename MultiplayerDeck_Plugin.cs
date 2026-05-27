@@ -1,7 +1,11 @@
-using System;
-using System.Collections.Generic;
-using GameDataEditor;
+using ChronoArkMod;
 using ChronoArkMod.Plugin;
+using GameDataEditor;
+using HarmonyLib;
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
@@ -9,32 +13,17 @@ namespace MultiplayerDeck
 {
     public class MultiplayerDeck_Plugin : ChronoArkPlugin
     {
-        private static GameObject runnerObject;
+        private Harmony harmony;
 
         public override void Initialize()
         {
-            EnsureRunner();
+            this.harmony = new Harmony(base.GetGuid());
+            this.harmony.PatchAll();
         }
 
         public override void Dispose()
         {
-            if (runnerObject != null)
-            {
-                Object.Destroy(runnerObject);
-                runnerObject = null;
-            }
-        }
-
-        private static void EnsureRunner()
-        {
-            if (runnerObject != null)
-            {
-                return;
-            }
-
-            runnerObject = new GameObject("MultiplayerDeck_Runtime");
-            Object.DontDestroyOnLoad(runnerObject);
-            runnerObject.AddComponent<Runtime>();
+            this.harmony.UnpatchSelf();
         }
 
         public static bool IsMultiplayer => TogetherManager.currentLobby != null;
@@ -48,256 +37,365 @@ namespace MultiplayerDeck
             }
         }
 
-        public static void MyBossEnterFriend(string bossKey)
+        [HarmonyPatch(typeof(BattleSystem), "BattleStart")]
+        public static class BattleStartDeckPatch
         {
-            StartBattleFromNetwork(bossKey, true, false);
-        }
-
-        public static void StartBattleFromNetwork(string QueueData, bool NormalBattle, bool Cursed, string RewardKey, string Preset, bool NoGameover)
-        {
-            if (BattleSystem.instance != null || FieldSystem.instance == null || StageSystem.instance == null)
+            [HarmonyPostfix]
+            public static void Postfix(ref IEnumerator __result)
             {
-                return;
-            }
-
-            FieldSystem.instance.BattleAfterDelegate = (FieldSystem.BattleAfterDel)Delegate.Combine(
-                FieldSystem.instance.BattleAfterDelegate,
-                new FieldSystem.BattleAfterDel(BossAfter));
-            FieldSystem.instance.BattleStart(new GDEEnemyQueueData(QueueData),
-                StageSystem.instance.StageData.BattleMap.Key,
-                NormalBattle,
-                Cursed,
-                RewardKey,
-                Preset,
-                NoGameover);
-        }
-
-        public static void BossAfter()
-        {
-            if (StageSystem.instance != null)
-            {
-                StageSystem.instance.CanNextStage = true;
-            }
-        }
-
-        public static string MyBossEnterMessage(StageSystem instance)
-        {
-            List<GDEEnemyQueueData> candidates = new List<GDEEnemyQueueData>();
-            foreach (GDEEnemyQueueData boss in instance.StageData.Bosses)
-            {
-                if (PlayData.TSavedata.SpRule == null ||
-                    PlayData.TSavedata.SpRule.RuleChange.BanBoss.Find(a => a == boss.Key) == null)
-                {
-                    if (!boss.Lock || SaveManager.IsUnlock(boss.Key, SaveManager.NowData.unlockList.UnlockBoss))
-                    {
-                        candidates.Add(boss);
-                    }
-                }
-            }
-
-            if (candidates.Count == 0)
-            {
-                candidates.Add(instance.StageData.Bosses[0]);
-            }
-
-            if (PlayData.TSavedata.SwordSanctuary)
-            {
-                PlayData.TSavedata.SwordSanctuary = false;
-                return GDEItemKeys.EnemyQueue_Queue_DorchiX;
-            }
-
-            return candidates.Random(RandomClassKey.Boss).Key;
-        }
-
-        public class BossBattleNet : PassiveBase
-        {
-            public readonly List<BattleEnemy> enemyList = new List<BattleEnemy>();
-
-            public override void FixedUpdate()
-            {
-                base.FixedUpdate();
-                if (BattleSystem.instance == null)
+                if (!IsMultiplayer)
                 {
                     return;
                 }
 
-                foreach (BattleEnemy enemy in BattleSystem.instance.EnemyList)
+                BattleSyncManager.Instance.Initialize();
+                if (IsLobbyOwner)
                 {
-                    if (enemy.Boss && !enemyList.Contains(enemy))
+                    BattleSyncManager.Instance.SendRequestForBattleStartDeck();
+                }
+
+                __result = WaitForCombinedDeckReceived(__result);
+                IEnumerator WaitForCombinedDeckReceived(IEnumerator origin)
+                {
+                    while (!BattleSyncManager.Instance.battleStartDeckManager.deckReceived)
                     {
-                        enemyList.Add(enemy);
-                        enemy.BuffAdd("GiantNet", enemy, false, 0, false, -1, false);
-                        if (enemy.HP == 0)
+                        yield return new WaitForFixedUpdate();
+                    }
+                    yield return origin;
+                }
+            }
+        }
+
+        [HarmonyPatch(typeof(BattleSystem))]
+        public static class TurnEndSyncPatch
+        {
+            [HarmonyPatch("TurnEnd")]
+            [HarmonyPrefix]
+            public static bool TurnEndPrefix(BattleSystem __instance)
+            {
+                if (!IsMultiplayer)
+                {
+                    return true;
+                }
+
+                __instance.ActWindow.On = false;
+                VoteManager.Instance.Vote(VoteManager.VoteTheme.TurnEnd);
+                return false;
+            }
+
+            [HarmonyPatch("ForceTurnEnd")]
+            [HarmonyPostfix]
+            public static void ForceTurnEndPostfix(BattleSystem __instance, ref IEnumerator __result)
+            {
+                if (!IsMultiplayer)
+                {
+                    return;
+                }
+
+                __result = ForceTurnEndIEnumerator(__result);
+                IEnumerator ForceTurnEndIEnumerator(IEnumerator origin)
+                {
+                    __instance.ActWindow.On = false;
+                    VoteManager.Instance.Vote(VoteManager.VoteTheme.TurnEnd);
+                    yield break;
+                }
+            }
+        }
+
+        [HarmonyPatch(typeof(SkillButton), "_Waste")]
+        public static class ExchangePatch
+        {
+            [HarmonyPrefix]
+            public static void Prefix(SkillButton __instance)
+            {
+                if (!IsMultiplayer)
+                {
+                    return;
+                }
+                if (__instance.BClickWaste)
+                {
+                    int seed = __instance.Myskill.CharinfoSkilldata.Seed;
+                    NetworkHelper.SendExchangeSkill(BattleSyncManager.RandomOtherPlayerId(), __instance.Myskill.CloneSkill(true));
+                    BattleSystem.instance.StartCoroutine(RemoveWastedSkill());
+                    IEnumerator RemoveWastedSkill()
+                    {
+                        yield return new WaitForFixedUpdate();
+                        Skill skill = BattleSystem.instance.AllyTeam.Skills_UsedDeck.FirstOrDefault(s => s.CharinfoSkilldata.Seed == seed);
+                        if (skill != null)
                         {
-                            enemy.Dead(false);
+                            BattleSystem.instance.AllyTeam.Skills_UsedDeck.Remove(skill);
+                            yield break;
+                        }
+                        skill = BattleSystem.instance.AllyTeam.Skills_Deck.FirstOrDefault(s => s.CharinfoSkilldata.Seed == seed);
+                        if (skill != null)
+                        {
+                            BattleSystem.instance.AllyTeam.Skills_Deck.Remove(skill);
+                            yield break;
                         }
                     }
                 }
             }
         }
 
-        private class Runtime : MonoBehaviour
+        [HarmonyPatch(typeof(FieldSystem), "BattleStart")]
+        public static class BattleStartSyncPatch
         {
-            private bool steamInitialized;
-            private bool windowShow = true;
-            private Rect windowRect = new Rect(1032f, 700f, 520f, 95f);
-            private string lastBattleKey;
-            private string lastStageKey;
-            private int lastTurnActionNum = -1;
-            private int lastSoul = int.MinValue;
-            private int lastGold = int.MinValue;
-            private bool nextStageVoteAvailable;
-
-            private void Update()
+            [HarmonyPostfix]
+            public static void Postfix(GDEEnemyQueueData QueueData, string MapKey, bool NomalBattle, bool Curse, string RewardKey, string Preset, bool NoGameover)
             {
-                InitializeSteamWhenReady();
-
-                if (steamInitialized)
+                if(!IsMultiplayer)
                 {
-                    NetworkHelper.update();
+                    return;
                 }
+                NetworkHelper.SendBattleStart(QueueData.Key, NomalBattle, Curse, RewardKey, Preset, NoGameover);
+            }
+        }
 
-                if (Input.GetKeyDown(KeyCode.F))
+        [HarmonyPatch]
+        public static class NextStageSyncPatch
+        {
+            [HarmonyPatch(typeof(MiniBossObject), "GoCamp")]
+            [HarmonyPrefix]
+            public static bool MiniBossNextStagePrevention()
+            {
+                if (!IsMultiplayer)
                 {
-                    windowShow = !windowShow;
+                    return true;
                 }
-
-                MultiplayerBattleSync.Tick();
-                GateNextStageBehindVote();
-                BroadcastLocalBattleStart();
-                //BroadcastStageState();
-                BroadcastTurnActionNum();
-                BroadcastSharedResources();
+                return false;
             }
 
-            private void InitializeSteamWhenReady()
+            [HarmonyPatch(typeof(FieldSystem), "ReturnArkButton")]
+            [HarmonyPrefix]
+            public static bool BossNextStagePrevention()
             {
-                if (steamInitialized)
+                if (!IsMultiplayer)
                 {
-                    return;
+                    return true;
                 }
-
-                if (SteamManager.Initialized)
-                {
-                    NetworkHelper.initialize();
-                    steamInitialized = true;
-                }
+                return false;
             }
 
-            private void OnGUI()
+            [HarmonyPatch(typeof(Camp), "NextMap")]
+            [HarmonyPrefix]
+            public static bool CampNextStagePrevention()
             {
-                if (!windowShow)
+                if (!IsMultiplayer)
                 {
-                    return;
+                    return true;
                 }
-
-                windowRect = GUILayout.Window(123, windowRect, Window, "Multiplayer Deck");
+                return false;
             }
 
-            private void Window(int id)
+            [HarmonyPatch(typeof(Door), "Trigger")]
+            [HarmonyPrefix]
+            public static bool DoorNextStagePrevention()
             {
-                GUILayout.BeginHorizontal();
-                if (GUILayout.Button("Create Lobby") || (windowShow && Input.GetKeyDown(KeyCode.Return)))
+                if (!IsMultiplayer)
                 {
-                    NetworkHelper.createLobby();
+                    return true;
                 }
-
-                GUI.enabled = nextStageVoteAvailable || !IsMultiplayer;
-                if (GUILayout.Button("Vote Next"))
+                if (VoteManager.Instance.currentVoteSession == null)
                 {
-                    NetworkHelper.SubmitNextStageVote();
+                    VoteManager.Instance.StartVote(VoteManager.VoteTheme.NextStage, ServerGotoNextStage);
                 }
-                GUI.enabled = true;
-
-                GUILayout.EndHorizontal();
-                GUI.DragWindow();
+                return false;
             }
 
-            private void BroadcastLocalBattleStart()
+
+            [HarmonyPatch(typeof(FieldSystem), "BattleEnd")]
+            [HarmonyPostfix]
+            public static void NextStageVote(ref IEnumerator __result)
             {
-                if (!IsMultiplayer || BattleSystem.instance == null || BattleSystem.instance.MainQueueData == null)
+                if (!IsMultiplayer)
                 {
                     return;
                 }
 
-                string key = BattleSystem.instance.MainQueueData.Key;
-                if (key == lastBattleKey)
+                __result = StartNextStageVote(__result);
+                IEnumerator StartNextStageVote(IEnumerator origin)
                 {
-                    return;
-                }
-
-                lastBattleKey = key;
-                NetworkHelper.sendBattleStart(key, BattleSystem.instance.BossBattle, BattleSystem.instance.CurseBattle, "", "", false);
-            }
-
-            private void BroadcastStageState()
-            {
-                if (!IsLobbyOwner || StageSystem.instance == null || StageSystem.instance.StageData == null)
-                {
-                    return;
-                }
-
-                string key = StageSystem.instance.StageData.Key;
-                if (key == lastStageKey)
-                {
-                    return;
-                }
-
-                lastStageKey = key;
-                NetworkHelper.sendStageState(key, StageSystem.instance.PlayerPos);
-            }
-
-            private void BroadcastTurnActionNum()
-            {
-                if (!IsMultiplayer || BattleSystem.instance == null || BattleSystem.instance.AllyTeam == null)
-                {
-                    lastTurnActionNum = -1;
-                    return;
-                }
-
-                int value = BattleSystem.instance.AllyTeam.TurnActionNum;
-                if (value == lastTurnActionNum)
-                {
-                    return;
-                }
-
-                lastTurnActionNum = value;
-                NetworkHelper.sendTurnActionNum(value);
-            }
-
-            private void BroadcastSharedResources()
-            {
-                if (!IsMultiplayer || PlayData.TSavedata == null)
-                {
-                    return;
-                }
-
-                if (PlayData.TSavedata._Soul != lastSoul)
-                {
-                    lastSoul = PlayData.TSavedata._Soul;
-                    NetworkHelper.sendData(NetworkHelper.dataType.Soul);
-                }
-                if (PlayData.TSavedata._Gold != lastGold)
-                {
-                    lastGold = PlayData.TSavedata._Gold;
-                    NetworkHelper.sendData(NetworkHelper.dataType.Gold);
+                    yield return origin;
+                    VoteManager.Instance.AbortCurrentVote();
+                    Debug.Log("[MultiplayerDeck] CanNextStage: " + StageSyncManager.Instance.bossClear);
+                    if (StageSyncManager.Instance.bossClear)
+                    {
+                        VoteManager.Instance.StartVote(VoteManager.VoteTheme.NextStage, ServerGotoNextStage);
+                    }
                 }
             }
 
-            private void GateNextStageBehindVote()
+            [HarmonyPatch(typeof(FieldSystem), "CampfireMap")]
+            [HarmonyPostfix]
+            public static void NextStageVoteCamp()
             {
-                if (!IsMultiplayer || StageSystem.instance == null)
+                if (!IsMultiplayer)
                 {
-                    nextStageVoteAvailable = false;
                     return;
                 }
+                VoteManager.Instance.StartVote(VoteManager.VoteTheme.NextStage, ServerGotoNextStage);
+            }
+        }
 
-                if (StageSystem.instance.CanNextStage)
+        [HarmonyPatch(typeof(HexGenerator), "GeneratorMap")]
+        public static class StageMapSyncPatch
+        {
+            [HarmonyPrefix]
+            public static bool ClientLoadReceivedMap(ref HexMap __result)
+            {
+                if (!IsMultiplayer || IsLobbyOwner)
                 {
-                    nextStageVoteAvailable = true;
-                    StageSystem.instance.CanNextStage = false;
+                    return true;
+                }
+                if (StageMapSyncHelper.mapPacket != null)
+                {
+                    var packet = StageMapSyncHelper.mapPacket;
+                    StageMapSyncHelper.mapPacket = null;
+                    __result = StageMapSyncHelper.LoadRemoteMap(packet);
+                    return false;
+                }
+                Debug.LogWarning("[MultiplayerDeck] StageMapSyncHelper.mapPacket is null. Map Not Synchronized");
+                return true;
+            }
+
+            [HarmonyPostfix]
+            public static void ServerSendMap(HexMap __result)
+            {
+                if (!IsMultiplayer || !IsLobbyOwner)
+                {
+                    return;
+                }
+                StageMapSyncHelper.NetStageMapPacket packet = StageMapSyncHelper.CreateMapPacket();
+                byte[] data = StageMapSyncHelper.SerializeMapPacket(packet);
+                Debug.Log("[MultiplayerDeck] Map Packet Size: " + data.Count());
+                NetworkHelper.Service()?.SendPacket(StageMapSyncHelper.SerializeMapPacket(packet));
+            }
+        }
+
+
+        [HarmonyPatch(typeof(StageSystem), "MonsterTileDelete")]
+        public static class MonsterClearPatch
+        {
+            [HarmonyPostfix]
+            public static void Postfix(Vector2 Pos)
+            {
+                if (!IsMultiplayer)
+                {
+                    return;
+                }
+                NetworkHelper.SendMonsterClear(Pos);
+            }
+        }
+
+        [HarmonyPatch]
+        public static class BossClearPatch
+        {
+            [HarmonyPatch(typeof(MiniBossObject), "BossClear", MethodType.Setter)]
+            [HarmonyPostfix]
+            public static void MiniBossClear(bool value)
+            {
+                if (!IsMultiplayer)
+                {
+                    return;
+                }
+                if (value && !StageSyncManager.Instance.bossClear)
+                {
+                    StageSyncManager.Instance.bossClear = true;
+                    NetworkHelper.SendData(NetDataType.BossClear);
                 }
             }
+
+            [HarmonyPatch(typeof(Stage1Events), "BossClear", MethodType.Setter)]
+            [HarmonyPostfix]
+            public static void BossClear(bool value)
+            {
+                if (!IsMultiplayer)
+                {
+                    return;
+                }
+                if (value && !StageSyncManager.Instance.bossClear)
+                {
+                    StageSyncManager.Instance.bossClear = true;
+                    NetworkHelper.SendData(NetDataType.BossClear);
+                }
+            }
+        }
+
+        public static void ServerGotoNextStage()
+        {
+            if (MultiplayerDeck_Plugin.IsLobbyOwner)
+            {
+                StageSyncManager.Instance.GotoNextStage();
+            }
+        }
+    }
+
+    public class MultiplayerSync : ChronoArkPluginMonoBehaviour
+    {
+        private bool steamInitialized;
+        private bool windowShow = true;
+        private Rect windowRect = new Rect(1032f, 700f, 520f, 95f);
+
+        private void Update()
+        {
+            InitializeSteamWhenReady();
+
+            if (steamInitialized)
+            {
+                NetworkHelper.Update();
+            }
+
+            if (Input.GetKeyDown(KeyCode.F))
+            {
+                windowShow = !windowShow;
+            }
+
+            BattleSyncManager.Instance.Tick();
+            StageSyncManager.Instance.Tick();
+            
+        }
+
+        private void InitializeSteamWhenReady()
+        {
+            if (steamInitialized)
+            {
+                return;
+            }
+
+            if (SteamManager.Initialized)
+            {
+                NetworkHelper.Initialize();
+                steamInitialized = true;
+            }
+        }
+
+        private void OnGUI()
+        {
+            if (!windowShow)
+            {
+                return;
+            }
+
+            windowRect = GUILayout.Window(123, windowRect, Window, "Multiplayer Deck");
+        }
+
+        private void Window(int id)
+        {
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Create Lobby") || (windowShow && Input.GetKeyDown(KeyCode.Return)))
+            {
+                NetworkHelper.CreateLobby();
+            }
+
+            GUI.enabled = MultiplayerDeck_Plugin.IsMultiplayer;
+            if (GUILayout.Button("Vote Next"))
+            {
+                VoteManager.Instance.Vote(VoteManager.VoteTheme.NextStage);
+            }
+            GUI.enabled = true;
+
+            GUILayout.EndHorizontal();
+            GUI.DragWindow();
         }
     }
 }

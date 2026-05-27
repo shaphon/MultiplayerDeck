@@ -29,7 +29,7 @@ namespace MultiplayerDeck
 		public SteamLobby(SteamIntegration service, CSteamID id)
 		{
 			this.service = service;
-			TogetherManager.currentUser = service.makeCurrentUser();
+			TogetherManager.currentUser = service.MakeCurrentUser();
 			steamID = id;
 			try
 			{
@@ -39,18 +39,18 @@ namespace MultiplayerDeck
 			catch
 			{
 			}
-			fetchAllMetadata();
+			FetchAllMetadata();
 		}
 
-		public void fetchAllMetadata()
+		public void FetchAllMetadata()
 		{
-			name = getMetadata("name");
-			owner = getOwnerName();
-			capacity = getCapacity();
-			members = getMemberCount();
+			name = GetMetadata("name");
+			owner = GetOwnerName();
+			capacity = GetCapacity();
+			members = GetMemberCount();
 		}
 
-		public string getOwnerName()
+		public string GetOwnerName()
 		{
 			try
 			{
@@ -63,16 +63,16 @@ namespace MultiplayerDeck
 			return owner;
 		}
 
-		public bool isOwner()
+		public bool IsOwner()
 		{
-			return TogetherManager.getCurrentUser().isUser(ownerID);
+			return TogetherManager.GetCurrentUser().IsUser(ownerID);
 		}
 
-		public void newOwner()
+		public void NewOwner()
 		{
 			foreach (RemotePlayer player in TogetherManager.players)
 			{
-				if (!TogetherManager.currentUser.isUser(player.steamUser))
+				if (!TogetherManager.currentUser.IsUser(player.steamUser))
 				{
 					SteamMatchmaking.SetLobbyData(steamID, "owner", player.userName);
 					SteamMatchmaking.SetLobbyOwner(steamID, player.steamUser);
@@ -82,12 +82,12 @@ namespace MultiplayerDeck
 			}
 		}
 
-		public int getMemberCount()
+		public int GetMemberCount()
 		{
 			return memberNames.Count();
 		}
 
-		public List<RemotePlayer> getLobbyMembers()
+		public List<RemotePlayer> GetLobbyMembers()
 		{
 			int num = 1;
 			try
@@ -114,7 +114,7 @@ namespace MultiplayerDeck
 			return players;
 		}
 
-		public string getMemberNameList()
+		public string GetMemberNameList()
 		{
 			StringBuilder stringBuilder = new StringBuilder();
 			foreach (RemotePlayer player in players)
@@ -125,22 +125,22 @@ namespace MultiplayerDeck
 			return stringBuilder.ToString().Trim();
 		}
 
-		public CSteamID getID()
+		public CSteamID GetID()
 		{
 			return steamID;
 		}
 
-		public void leaveLobby()
+		public void LeaveLobby()
 		{
 			SteamMatchmaking.LeaveLobby(steamID);
 		}
 
-		public void setJoinable(bool toggle)
+		public void SetJoinable(bool toggle)
 		{
 			SteamMatchmaking.SetLobbyJoinable(steamID, toggle);
 		}
 
-		public void setPrivate(bool toggle)
+		public void SetPrivate(bool toggle)
 		{
 			if (toggle)
 			{
@@ -152,22 +152,22 @@ namespace MultiplayerDeck
 			}
 		}
 
-		public void join()
+		public void Join()
 		{
 			SteamMatchmaking.JoinLobby(steamID);
 		}
 
-		public int getCapacity()
+		public int GetCapacity()
 		{
 			return 10;
 		}
 
-		public string getMetadata(string key)
+		public string GetMetadata(string key)
 		{
 			return SteamMatchmaking.GetLobbyData(steamID, key);
 		}
 
-		public void setMetadata(Dictionary<string, string> pairs)
+		public void SetMetadata(Dictionary<string, string> pairs)
 		{
 			foreach (KeyValuePair<string, string> pair in pairs)
 			{
@@ -175,7 +175,7 @@ namespace MultiplayerDeck
 			}
 		}
 
-		public AccountID_t getOwner()
+		public AccountID_t GetOwner()
 		{
 			return ownerID.GetAccountID();
 		}
