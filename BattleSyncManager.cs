@@ -182,22 +182,11 @@ namespace MultiplayerDeck
                 int hash = 17;
                 foreach (Skill skill in skills)
                 {
-                    hash = hash * 31 + GetSkillKey(skill).GetHashCode();
+                    hash = hash * 31 + (skill.CharinfoSkilldata?.Seed ?? 0);
                 }
-
                 return hash;
             }
         }        
-
-        public static string GetSkillKey(Skill skill)
-        {
-            if (skill == null || skill.MySkill == null)
-            {
-                return string.Empty;
-            }
-
-            return string.IsNullOrEmpty(skill.MySkill.KeyID) ? skill.MySkill.Key : skill.MySkill.KeyID;
-        }
 
         public static ulong RandomOtherPlayerId()
         {
@@ -350,10 +339,8 @@ namespace MultiplayerDeck
                 combinedDeck = BattleTeam.Shuffle<SkillNetworkDTO>(combinedDeck);
 
                 List<Skill> newDeck = combinedDeck
-                    .Select((s, index) => SkillSerializer.CreateSkillFromDTO(s, index))
-                    .Where(s => s != null)
-                    .ToList();
-
+                    .Select(s => SkillSerializer.CreateSkillFromDTO(s))
+                    .Where(s => s != null).ToList();
 
                 Debug.Log("[DeckSync] Host rebuilt combined deck count: " + newDeck.Count);
                 if (combinedDeck.Count > 0 && newDeck.Count == 0)

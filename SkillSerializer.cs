@@ -19,7 +19,6 @@ namespace MultiplayerDeck
             {
                 return;
             }
-
             foreach (Skill skill in list)
             {
                 WriteDTO(writer, SkillToDTO(skill));
@@ -48,7 +47,6 @@ namespace MultiplayerDeck
             {
                 return;
             }
-
             foreach (SkillNetworkDTO skillDTO in list)
             {
                 WriteDTO(writer, skillDTO);
@@ -83,45 +81,22 @@ namespace MultiplayerDeck
                 writer.Write("");
                 writer.Write("");
                 writer.Write(0);
-                writer.Write(0);
-                writer.Write(-1);
                 return;
             }
 
             writer.Write(dto.SkillKey ?? "");
             writer.Write(dto.MasterKey ?? "");
-            writer.Write(dto.ExtendedData?.Count ?? 0);
-
-            if (dto.ExtendedData != null)
-            {
-                foreach ((string key, bool battle) seData in dto.ExtendedData)
-                {
-                    writer.Write(seData.key ?? "");
-                    writer.Write(seData.battle);
-                }
-            }
-
             writer.Write(dto.Seed);
-            writer.Write(dto.MasterIndex);
         }
 
         public static SkillNetworkDTO ReadDTO(BinaryReader reader)
         {
-            var dto = new SkillNetworkDTO
+            return new SkillNetworkDTO
             {
                 SkillKey = reader.ReadString(),
                 MasterKey = reader.ReadString(),
+                Seed = reader.ReadInt32()
             };
-
-            int seCount = reader.ReadInt32();
-            dto.ExtendedData = new List<(string, bool)>();
-            for (int i = 0; i < seCount; i++)
-            {
-                dto.ExtendedData.Add((reader.ReadString(), reader.ReadBoolean()));
-            }
-            dto.Seed = reader.ReadInt32();
-            dto.MasterIndex = reader.ReadInt32();
-            return dto;
         }
 
         // 转 DTO
@@ -135,192 +110,99 @@ namespace MultiplayerDeck
             {
                 SkillKey = string.IsNullOrEmpty(skill.MySkill.KeyID) ? skill.MySkill.Key : skill.MySkill.KeyID,
                 MasterKey = skill.Master?.Info?.KeyData ?? "",
-                Seed = skill.CharinfoSkilldata?.Seed ?? 0,
-                MasterIndex = GetMasterIndex(skill.Master),
-                ExtendedData = (skill.AllExtendeds ?? new List<Skill_Extended>())
-                    .Where(se => se.Data != null && !se.isDataExtended)
-                    .Select(se => (se.Data.Key, se.BattleExtended)).ToList()
+                Seed = skill.CharinfoSkilldata?.Seed ?? 0
             };
         }
 
         // 从 DTO 重建（需要在游戏上下文环境中）
         public static Skill CreateSkillFromDTO(SkillNetworkDTO dto)
         {
-            return CreateSkillFromDTO(dto, -1);
-        }
-
-        public static Skill CreateSkillFromDTO(SkillNetworkDTO dto, int packetIndex)
-        {
-            if (BattleSystem.instance == null || dto == null)
+            if (BattleSystem.instance == null || BattleSystem.instance.AllyTeam == null || dto == null)
             {
                 return null;
             }
 
-            BattleChar master = FindBestLocalMaster(dto, packetIndex);
+            BattleChar master = FindBestLocalMaster(dto.MasterKey);
             if (master == null)
             {
                 Debug.LogWarning("[SkillSerializer] Cannot find master for skill: " + dto.SkillKey + ", master=" + dto.MasterKey);
                 return null;
             }
 
-            Skill skill = CreateFromLocalInitializedSkill(dto, master);
+            Skill skill = CreateFromLocalInitializedSkill(dto);
             if (skill == null)
             {
                 if (string.IsNullOrEmpty(dto.SkillKey))
                 {
-                    Debug.LogWarning("[SkillSerializer] Empty skill key. master=" + dto.MasterKey + ", seed=" + dto.Seed);
+                    Debug.LogWarning("[SkillSerializer] Empty skill key. seed=" + dto.Seed);
                     return null;
                 }
 
                 skill = Skill.TempSkill(dto.SkillKey, master, master.MyTeam);
-                //AddNetworkExtensions(skill, dto);
+                
             }
 
             return skill;
         }
 
-        private static int GetMasterIndex(BattleChar master)
+        private static Skill CreateFromLocalInitializedSkill(SkillNetworkDTO dto)
         {
-            List<BattleChar> chars = BattleSystem.instance?.AllyTeam?.Chars;
-            if (master == null || chars == null)
-            {
-                return -1;
-            }
-
-            return chars.FindIndex(bc => bc == master || bc?.Info == master.Info);
-        }
-
-        private static Skill CreateFromLocalInitializedSkill(SkillNetworkDTO dto, BattleChar master)
-        {
-            Skill original = FindLocalInitializedSkill(dto, master);
+            Skill original = FindLocalInitializedSkill(dto);
             if (original == null)
             {
                 return null;
             }
 
-            Skill skill = original.CloneSkill(false, master, original.AllExtendeds);
-            skill.CharinfoSkilldata.CopyData(original);
+            Skill skill = original.CloneSkill(true);
             return skill;
         }
 
-        private static Skill FindLocalInitializedSkill(SkillNetworkDTO dto, BattleChar master)
+        private static Skill FindLocalInitializedSkill(SkillNetworkDTO dto)
         {
-            if (BattleSystem.instance?.AllyTeam == null)
+            if (dto.Seed == 0)
             {
                 return null;
             }
 
             IEnumerable<Skill> candidates = BattleSystem.instance.AllyTeam.Skills_Deck
-                .Concat(BattleSystem.instance.AllyTeam.Skills_UsedDeck)
-                .Where(skill => skill != null && skill.Master != null && skill.Master.Info != null);
-
-            if (dto.Seed != 0)
-            {
-                Skill bySeed = candidates.FirstOrDefault(skill =>
-                    skill.CharinfoSkilldata != null &&
-                    skill.CharinfoSkilldata.Seed == dto.Seed &&
-                    IsSameSkillKey(skill, dto.SkillKey));
-
-                if (bySeed != null)
-                {
-                    return bySeed;
-                }
-            }
+                .Concat(BattleSystem.instance.AllyTeam.Skills_UsedDeck);
 
             return candidates.FirstOrDefault(skill =>
-                skill.Master.Info.KeyData == master.Info.KeyData &&
-                IsSameSkillKey(skill, dto.SkillKey));
-        }
-
-        private static bool IsSameSkillKey(Skill skill, string key)
-        {
-            if (skill == null || skill.MySkill == null || string.IsNullOrEmpty(key))
-            {
-                return false;
-            }
-
-            return skill.MySkill.Key == key || skill.MySkill.KeyID == key;
-        }
-
-        private static void AddNetworkExtensions(Skill skill, SkillNetworkDTO dto)
-        {
-            if (skill == null || dto?.ExtendedData == null)
-            {
-                return;
-            }
-
-            foreach ((string key, bool battle) seData in dto.ExtendedData)
-            {
-                if (string.IsNullOrEmpty(seData.key) ||
-                    skill.AllExtendeds.Any(se => se.Data != null && se.Data.Key == seData.key))
-                {
-                    continue;
-                }
-
-                if (seData.battle)
-                {
-                    skill.ExtendedAdd_Battle(seData.key);
-                }
-                else
-                {
-                    skill.ExtendedAdd(seData.key);
-                }
-            }
+                skill.CharinfoSkilldata != null &&
+                skill.CharinfoSkilldata.Seed == dto.Seed);
         }
 
         public static BattleChar FindBestLocalMaster(string originalMaster)
         {
-            return FindBestLocalMaster(new SkillNetworkDTO { MasterKey = originalMaster, MasterIndex = -1 }, -1);
-        }
-
-        public static BattleChar FindBestLocalMaster(SkillNetworkDTO dto, int packetIndex)
-        {
-            List<BattleChar> allChars = BattleSystem.instance?.AllyTeam?.Chars;
+            List<BattleChar> allChars = BattleSystem.instance.AllyTeam.Chars;
             if (allChars == null || allChars.Count == 0)
             {
                 return null;
             }
   
-            string originalMaster = dto?.MasterKey ?? "";
-
-            BattleChar battleChar = allChars.FirstOrDefault(bc => bc?.Info != null && bc.Info.KeyData == originalMaster);
+            BattleChar battleChar = allChars.FirstOrDefault(bc => bc.Info.KeyData == originalMaster);
             if (battleChar != null)
             {
                 return battleChar;
             }
 
-            /*int mappedIndex = dto?.MasterIndex ?? -1;
-            if (mappedIndex >= 0)
-            {
-                return allChars[mappedIndex % allChars.Count];
-            }*/
-
             List<BattleChar> aliveChars = BattleSystem.instance.AllyTeam.AliveChars;
             if (!string.IsNullOrEmpty(originalMaster) && aliveChars != null && aliveChars.Count > 0)
             {
                 GDECharacterData originalMasterData = new GDECharacterData(originalMaster);
-                List<BattleChar> sameRole = aliveChars
-                    .Where(bc => bc?.Info?.GetData?.Role != null && bc.Info.GetData.Role.Key == originalMasterData.Role.Key)
-                    .ToList();
+                List<BattleChar> sameRole = aliveChars.FindAll(bc => bc.Info.GetData.Role.Key == originalMasterData.Role.Key);
 
                 if (sameRole.Count > 0)
                 {
                     return sameRole.Random();
                 }
+                else
+                {
+                    return aliveChars.Random();
+                }
             }
 
-            /*if (packetIndex >= 0)
-            {
-                return allChars[packetIndex % allChars.Count];
-            }*/
-
-            if (aliveChars != null && aliveChars.Count > 0)
-            {
-                int keyHash = dto?.SkillKey == null ? 0 : Math.Abs(dto.SkillKey.GetHashCode());
-                return aliveChars[keyHash % aliveChars.Count];
-            }
-
-            return allChars[0];
+            return allChars.Random();
         }
     }
 
@@ -331,9 +213,5 @@ namespace MultiplayerDeck
         public string SkillKey;              // GDESkillData.Key
         public string MasterKey;              // 角色唯一标识
         public int Seed;                       // CharInfoSkillData.Seed，用于优先匹配本地初始化出的原牌
-        public int MasterIndex;                // 原队伍中的角色槽位；远端角色不存在本地时按槽位映射
-
-        // 扩展数据用键值对传输
-        public List<(string, bool)> ExtendedData;
     }
 }
