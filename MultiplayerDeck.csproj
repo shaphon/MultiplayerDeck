@@ -3,7 +3,7 @@
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
     <OutputType>Library</OutputType>
-    <AssemblyName>MultiplayerDeck202652612017</AssemblyName>
+    <AssemblyName>MultiplayerDeck2026526144313</AssemblyName>
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <OutputPath>bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
@@ -387,7 +387,7 @@
     <!-- Extra Reference Start-->
 <!-- Extra Reference End-->
   </ItemGroup>
-                                                  <!-- Compile ItemGroup Start-->
+                                                              <!-- Compile ItemGroup Start-->
   <ItemGroup>
     <Compile Include="BattleSyncManager.cs" />
     <Compile Include="MultiplayerDeck_ModDefinition.cs" />

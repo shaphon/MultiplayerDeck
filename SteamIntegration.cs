@@ -6,6 +6,8 @@ namespace MultiplayerDeck
 {
 	public class SteamIntegration
 	{
+		private static readonly int maxPlayersCount = 4;
+
 		public static int channel;
 
 		public static RemotePlayer GetPlayer(CSteamID steamID)
@@ -27,7 +29,7 @@ namespace MultiplayerDeck
 
 		public void CreateLobby()
 		{
-			SteamMatchmaking.CreateLobby((ELobbyType)2, 4);
+			SteamMatchmaking.CreateLobby((ELobbyType)2, maxPlayersCount);
 		}
 
 		public void SetLobbyPrivate(bool priv)

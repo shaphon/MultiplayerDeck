@@ -87,7 +87,10 @@ namespace MultiplayerDeck
             {
                 turnActionNumSyncing = true;
                 BattleSystem.instance.AllyTeam.TurnActionNum = value;
-                BattleSystem.instance.StartCoroutine(BattleSystem.instance.EnemyTurn(false));
+                if (!BattleSystem.instance.EnemyCheck)
+                {
+                    BattleSystem.instance.StartCoroutine(BattleSystem.instance.EnemyTurn(false));
+                }
                 turnActionNumSyncing = false;
             }
         }
@@ -120,7 +123,7 @@ namespace MultiplayerDeck
             int deckHash = SkillListHash(team.Skills_Deck);
             int usedHash = SkillListHash(team.Skills_UsedDeck);
             bool deckChange = (deckHash != lastDeckHash);
-            bool usedChange = (deckHash != lastDeckHash);
+            bool usedChange = (usedHash != lastUsedHash);
 
             lastDeckHash = deckHash;
             lastUsedHash = usedHash;
@@ -147,6 +150,11 @@ namespace MultiplayerDeck
                 return;
             }
 
+            if (BattleSystem.instance.NowEndedTurn)
+            {
+                return;
+            }
+
             int newTurnActionNum = BattleSystem.instance.AllyTeam.TurnActionNum;
             if (newTurnActionNum != lastTurnActionNum)
             {
@@ -156,7 +164,10 @@ namespace MultiplayerDeck
                     turnActionNumSyncing = false;
                     return;
                 }
-                NetworkHelper.SendTurnActionNum(newTurnActionNum);
+                if (newTurnActionNum > 0)
+                {
+                    NetworkHelper.SendTurnActionNum(newTurnActionNum);
+                }
             }
         }
 
@@ -275,7 +286,15 @@ namespace MultiplayerDeck
             {
                 return;
             }
-            NetworkHelper.SendDeckState(BattleSystem.instance.AllyTeam.Skills_Deck);
+
+            MemoryStream memoryStream = new MemoryStream();
+            using (BinaryWriter binaryWriter = new BinaryWriter(memoryStream))
+            {
+                binaryWriter.Write((int)NetDataType.BattleStartDeck);
+                SkillSerializer.SkillListSerialize(binaryWriter, BattleSystem.instance.AllyTeam.Skills_Deck);
+            }
+            NetworkHelper.Service()?.SendPacket(memoryStream.ToArray());
+
             deckSent = true;
         }
 
@@ -294,7 +313,10 @@ namespace MultiplayerDeck
 
             if (deckContributions.Count == TogetherManager.players.Count - 1)
             {
-                List<Skill> newDeck = combinedDeck.Select(s => SkillSerializer.CreateSkillFromDTO(s)).ToList();
+                List<Skill> newDeck = combinedDeck
+                    .Select(s => SkillSerializer.CreateSkillFromDTO(s))
+                    .Where(s => s != null)
+                    .ToList();
                 BattleSyncManager.Instance.ApplyDeckState(false, newDeck);
                 deckReceived = true;
                 
@@ -312,8 +334,7 @@ namespace MultiplayerDeck
             MemoryStream memoryStream = new MemoryStream();
             using (BinaryWriter binaryWriter = new BinaryWriter(memoryStream))
             {
-                binaryWriter.Write((int)NetDataType.DeckState);
-                binaryWriter.Write(false);
+                binaryWriter.Write((int)NetDataType.BattleStartDeck);
                 SkillSerializer.SkillDTOListSerialize(binaryWriter, combinedDeck);
             }
             NetworkHelper.Service()?.SendPacket(memoryStream.ToArray());

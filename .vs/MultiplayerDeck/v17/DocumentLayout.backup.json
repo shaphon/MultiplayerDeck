@@ -3,16 +3,16 @@
   "WorkspaceRootPath": "D:\\Steam\\steamapps\\common\\Chrono Ark\\Mod\\Mod Projects\\MultiplayerDeck\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{05E73DD2-BCD9-1528-78B9-A3BCB58FA80E}|MultiplayerDeck.csproj|D:\\Steam\\steamapps\\common\\Chrono Ark\\Mod\\Mod Projects\\MultiplayerDeck\\stagesyncmanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "AbsoluteMoniker": "D:0:0:{05E73DD2-BCD9-1528-78B9-A3BCB58FA80E}|MultiplayerDeck.csproj|D:\\Steam\\steamapps\\common\\Chrono Ark\\Mod\\Mod Projects\\MultiplayerDeck\\multiplayerdeck_plugin.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{05E73DD2-BCD9-1528-78B9-A3BCB58FA80E}|MultiplayerDeck.csproj|solutionrelative:multiplayerdeck_plugin.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{05E73DD2-BCD9-1528-78B9-A3BCB58FA80E}|MultiplayerDeck.csproj|d:\\steam\\steamapps\\common\\chrono ark\\mod\\mod projects\\multiplayerdeck\\stagesyncmanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{05E73DD2-BCD9-1528-78B9-A3BCB58FA80E}|MultiplayerDeck.csproj|solutionrelative:stagesyncmanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{05E73DD2-BCD9-1528-78B9-A3BCB58FA80E}|MultiplayerDeck.csproj|D:\\Steam\\steamapps\\common\\Chrono Ark\\Mod\\Mod Projects\\MultiplayerDeck\\networkhelper.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{05E73DD2-BCD9-1528-78B9-A3BCB58FA80E}|MultiplayerDeck.csproj|solutionrelative:networkhelper.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{05E73DD2-BCD9-1528-78B9-A3BCB58FA80E}|MultiplayerDeck.csproj|d:\\steam\\steamapps\\common\\chrono ark\\mod\\mod projects\\multiplayerdeck\\multiplayerdeck_plugin.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{05E73DD2-BCD9-1528-78B9-A3BCB58FA80E}|MultiplayerDeck.csproj|solutionrelative:multiplayerdeck_plugin.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{05E73DD2-BCD9-1528-78B9-A3BCB58FA80E}|MultiplayerDeck.csproj|D:\\Steam\\steamapps\\common\\Chrono Ark\\Mod\\Mod Projects\\MultiplayerDeck\\votemanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
@@ -26,24 +26,24 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 3,
+          "SelectedChildIndex": 0,
           "Children": [
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 0,
               "Title": "MultiplayerDeck_Plugin.cs",
               "DocumentMoniker": "D:\\Steam\\steamapps\\common\\Chrono Ark\\Mod\\Mod Projects\\MultiplayerDeck\\MultiplayerDeck_Plugin.cs",
               "RelativeDocumentMoniker": "MultiplayerDeck_Plugin.cs",
               "ToolTip": "D:\\Steam\\steamapps\\common\\Chrono Ark\\Mod\\Mod Projects\\MultiplayerDeck\\MultiplayerDeck_Plugin.cs",
               "RelativeToolTip": "MultiplayerDeck_Plugin.cs",
-              "ViewState": "AgIAACIBAAAAAAAAAAAowC8BAAAuAAAAAAAAAA==",
+              "ViewState": "AgIAAC0BAAAAAAAAAAA2wC8BAAAuAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-05-25T16:46:29.686Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 2,
               "Title": "NetworkHelper.cs",
               "DocumentMoniker": "D:\\Steam\\steamapps\\common\\Chrono Ark\\Mod\\Mod Projects\\MultiplayerDeck\\NetworkHelper.cs",
               "RelativeDocumentMoniker": "NetworkHelper.cs",
@@ -51,8 +51,7 @@
               "RelativeToolTip": "NetworkHelper.cs",
               "ViewState": "AgIAAKkAAAAAAAAAAAAgwLcAAAAgAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-05-25T16:22:18.43Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-05-25T16:22:18.43Z"
             },
             {
               "$type": "Document",
@@ -68,13 +67,13 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
+              "DocumentIndex": 1,
               "Title": "StageSyncManager.cs",
               "DocumentMoniker": "D:\\Steam\\steamapps\\common\\Chrono Ark\\Mod\\Mod Projects\\MultiplayerDeck\\StageSyncManager.cs",
               "RelativeDocumentMoniker": "StageSyncManager.cs",
               "ToolTip": "D:\\Steam\\steamapps\\common\\Chrono Ark\\Mod\\Mod Projects\\MultiplayerDeck\\StageSyncManager.cs",
               "RelativeToolTip": "StageSyncManager.cs",
-              "ViewState": "AgIAAIMAAAAAAAAAAAAgwJEAAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAAJcAAAAAAAAAAAAywJEAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-05-25T16:13:01.597Z",
               "EditorCaption": ""

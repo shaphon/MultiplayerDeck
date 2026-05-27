@@ -26,7 +26,8 @@ namespace MultiplayerDeck
 		Vote,
 		StageMap,
 		MonsterClear,
-		BossClear
+		BossClear,
+		LobbyClosed
 	}
 
 	public class NetworkHelper
@@ -72,134 +73,154 @@ namespace MultiplayerDeck
 			{
 				return;
 			}
-            MemoryStream memoryStream = new MemoryStream(data);
-			memoryStream.Position = 0L;
-			using (BinaryReader binaryReader = new BinaryReader(memoryStream))
+			try
 			{
-				NetDataType dataType = (NetDataType)binaryReader.ReadInt32();
-				switch (dataType)
+				MemoryStream memoryStream = new MemoryStream(data);
+				memoryStream.Position = 0L;
+				using (BinaryReader binaryReader = new BinaryReader(memoryStream))
 				{
-					case NetDataType.Test:
+					NetDataType dataType = (NetDataType)binaryReader.ReadInt32();
+					switch (dataType)
 					{
-						string text = binaryReader.ReadString();
-						Debug.Log(dataType.ToString() + " " + text);
-						if (FieldSystem.instance != null)
+						case NetDataType.Test:
 						{
-							FieldSystem.instance.BattleStart(new GDEEnemyQueueData(text), StageSystem.instance.StageData.BattleMap.Key, true, false, "", "", false);
+							string text = binaryReader.ReadString();
+							Debug.Log(dataType.ToString() + " " + text);
+							if (FieldSystem.instance != null)
+							{
+								FieldSystem.instance.BattleStart(new GDEEnemyQueueData(text), StageSystem.instance.StageData.BattleMap.Key, true, false, "", "", false);
+							}
+							break;
 						}
-						break;
-					}
-					case NetDataType.BattleStart:
-					{
-						string queueData = binaryReader.ReadString();
-						bool normalBattle = binaryReader.ReadBoolean();
-						bool cursed = binaryReader.ReadBoolean();
-						string rewardKey = binaryReader.ReadString();
-						string preset = binaryReader.ReadString();
-						bool noGameover = binaryReader.ReadBoolean();
-						Debug.Log(dataType.ToString() + " " + queueData);
+						case NetDataType.BattleStart:
+						{
+							string queueData = binaryReader.ReadString();
+							bool normalBattle = binaryReader.ReadBoolean();
+							bool cursed = binaryReader.ReadBoolean();
+							string rewardKey = binaryReader.ReadString();
+							string preset = binaryReader.ReadString();
+							bool noGameover = binaryReader.ReadBoolean();
+							Debug.Log(dataType.ToString() + " " + queueData);
 
-						StageSyncManager.Instance.StartBattleFromNetwork(queueData, normalBattle, cursed, rewardKey, preset, noGameover);
-						break;
-					}
-					case NetDataType.RequestForBattleStartDeck:
-					{
-						if (TogetherManager.currentLobby != null && !TogetherManager.currentLobby.IsOwner())
-						{
-                            BattleSyncManager.Instance.SendPersonalDeck();
+							StageSyncManager.Instance.StartBattleFromNetwork(queueData, normalBattle, cursed, rewardKey, preset, noGameover);
+							break;
 						}
-						break;
-					}
-					case NetDataType.BattleStartDeck:
-					{
-						if (TogetherManager.currentLobby.IsOwner())
+						case NetDataType.RequestForBattleStartDeck:
 						{
-                            List<SkillNetworkDTO> deck = SkillSerializer.SkillDTOListDeserialize(binaryReader);
-                            BattleSyncManager.Instance.ReceiveDeckContribution(playerInfo, deck);
+							if (TogetherManager.currentLobby != null && !TogetherManager.currentLobby.IsOwner())
+							{
+								BattleSyncManager.Instance.SendPersonalDeck();
+							}
+							break;
 						}
-						else
+						case NetDataType.BattleStartDeck:
 						{
-                            List<Skill> deck = SkillSerializer.SkillListDeserialize(binaryReader);
-                            BattleSyncManager.Instance.ReceiveCombinedDeck(playerInfo, deck);
+							if (TogetherManager.currentLobby.IsOwner())
+							{
+								List<SkillNetworkDTO> deck = SkillSerializer.SkillDTOListDeserialize(binaryReader);
+								BattleSyncManager.Instance.ReceiveDeckContribution(playerInfo, deck);
+							}
+							else
+							{
+								List<Skill> deck = SkillSerializer.SkillListDeserialize(binaryReader);
+								BattleSyncManager.Instance.ReceiveCombinedDeck(playerInfo, deck);
+							}
+							break;
 						}
-						break;
-					}
-                    case NetDataType.DeckState:
-                    {
-                        bool usedDeck = binaryReader.ReadBoolean();
-                        List<Skill> skills = SkillSerializer.SkillListDeserialize(binaryReader);
-                        BattleSyncManager.Instance.ApplyDeckState(usedDeck, skills);
-                        break;
-                    }
-                    case NetDataType.EnemyHP:
-                    {
-                        string enemyKey = binaryReader.ReadString();
-                        int position = binaryReader.ReadInt32();
-                        int hp = binaryReader.ReadInt32();
-                        BattleSyncManager.Instance.ApplyEnemyHp(enemyKey, position, hp);
-                        break;
-                    }
-                    case NetDataType.TurnActionNum:
-                    {
-                        int value = binaryReader.ReadInt32();
-                        BattleSyncManager.Instance.ApplyTurnActionNum(value);
-                        break;
-                    }
-                    case NetDataType.ExchangeSkill:
-                    {
-                        ulong targetAccountId = binaryReader.ReadUInt64();
-                        Skill skill = SkillSerializer.SkillDeserialize(binaryReader);
-                        if (playerInfo != TogetherManager.currentUser && targetAccountId == TogetherManager.currentUser.steamUser.m_SteamID)
-                        {
-                            BattleSyncManager.Instance.ReceiveExchangedSkill(skill);
-                        }
-                        break;
-                    }
-                    case NetDataType.Vote:
-					{
-						VoteManager.VoteTheme voteTheme = (VoteManager.VoteTheme)binaryReader.ReadInt32();
-						ulong playerId = binaryReader.ReadUInt64();
-						bool cancel = binaryReader.ReadBoolean();
-						VoteManager.Instance.VoteFromNetwork(voteTheme, playerId, cancel);
-						break;
-					}
-					case NetDataType.StageMap:
-					{
-                        if (!MultiplayerDeck_Plugin.IsLobbyOwner)
-                        {
-                            StageMapSyncHelper.mapPacket = StageMapSyncHelper.DeserializeMapPacket(data);
-                            StageSyncManager.Instance.GotoNextStage();
-                        }
-						break;
-                    }
-					case NetDataType.MonsterClear:
-					{
-						float x = binaryReader.ReadSingle();
-						float y = binaryReader.ReadSingle();
-						StageSyncManager.Instance.MonsterClear(new Vector2(x, y));
-                        break;
-					}
-					case NetDataType.BossClear:
-					{
-						StageSyncManager.Instance.bossClear = true;
-                        StageSyncManager.Instance.BossClear();
-                        break;
-                    }
+						case NetDataType.DeckState:
+						{
+							bool usedDeck = binaryReader.ReadBoolean();
+							List<Skill> skills = SkillSerializer.SkillListDeserialize(binaryReader);
+							BattleSyncManager.Instance.ApplyDeckState(usedDeck, skills);
+							break;
+						}
+						case NetDataType.EnemyHP:
+						{
+							string enemyKey = binaryReader.ReadString();
+							int position = binaryReader.ReadInt32();
+							int hp = binaryReader.ReadInt32();
+							BattleSyncManager.Instance.ApplyEnemyHp(enemyKey, position, hp);
+							break;
+						}
+						case NetDataType.TurnActionNum:
+						{
+							int value = binaryReader.ReadInt32();
+							BattleSyncManager.Instance.ApplyTurnActionNum(value);
+							break;
+						}
+						case NetDataType.ExchangeSkill:
+						{
+							ulong targetAccountId = binaryReader.ReadUInt64();
+							Skill skill = SkillSerializer.SkillDeserialize(binaryReader);
+							if (skill == null)
+							{
+								break;
+							}
+							if (playerInfo != TogetherManager.currentUser && targetAccountId == TogetherManager.currentUser.steamUser.m_SteamID)
+							{
+								BattleSyncManager.Instance.ReceiveExchangedSkill(skill);
+							}
+							break;
+						}
+						case NetDataType.Vote:
+						{
+							VoteManager.VoteTheme voteTheme = (VoteManager.VoteTheme)binaryReader.ReadInt32();
+							ulong playerId = binaryReader.ReadUInt64();
+							bool cancel = binaryReader.ReadBoolean();
+							VoteManager.Instance.VoteFromNetwork(voteTheme, playerId, cancel);
+							break;
+						}
+						case NetDataType.StageMap:
+						{
+							if (!MultiplayerDeck_Plugin.IsLobbyOwner)
+							{
+								StageMapSyncHelper.mapPacket = StageMapSyncHelper.DeserializeMapPacket(data);
+								StageSyncManager.Instance.GotoNextStage();
+							}
+							break;
+						}
+						case NetDataType.MonsterClear:
+						{
+							float x = binaryReader.ReadSingle();
+							float y = binaryReader.ReadSingle();
+							StageSyncManager.Instance.MonsterClear(new Vector2(x, y));
+							break;
+						}
+						case NetDataType.BossClear:
+						{
+							StageSyncManager.Instance.bossClear = true;
+							StageSyncManager.Instance.BossClear();
+							break;
+						}
+						case NetDataType.LobbyClosed:
+						{
+							ulong lobbyId = binaryReader.ReadUInt64();
+							string reason = binaryReader.ReadString();
+							if (TogetherManager.currentLobby != null && TogetherManager.currentLobby.steamID.m_SteamID == lobbyId)
+							{
+								Debug.Log("[MultiplayerDeck] Lobby closed by owner: " + reason);
+								TogetherManager.ClearMultiplayerData();
+								VoteManager.Instance.AbortCurrentVote();
+							}
+							break;
+						}
 
-					case NetDataType.SkillPlayed:
-					{
-						string skillName = binaryReader.ReadString();
-						if (playerInfo != TogetherManager.currentUser)
+						case NetDataType.SkillPlayed:
 						{
-                            BattleSyncManager.Instance.ApplyRemoteSkillName(skillName);
+							string skillName = binaryReader.ReadString();
+							if (playerInfo != TogetherManager.currentUser)
+							{
+								BattleSyncManager.Instance.ApplyRemoteSkillName(skillName);
+							}
+							break;
 						}
+						default:
+						Debug.Log(dataType);
 						break;
 					}
-					default:
-					Debug.Log(dataType);
-					break;
 				}
 			}
+			catch (Exception ex) { }
 		}
 
 		public static void SendData(NetDataType type)
@@ -313,8 +334,6 @@ namespace MultiplayerDeck
 			Service()?.SendPacket(memoryStream.ToArray());
 		}
 
-
-
 		public static void SendExchangeSkill(ulong targetAccountId, Skill skill)
 		{
             MemoryStream memoryStream = new MemoryStream();
@@ -338,6 +357,23 @@ namespace MultiplayerDeck
             }
             Service()?.SendPacket(memoryStream.ToArray());
         }
+
+		public static void SendLobbyClosed(string reason)
+		{
+			if (TogetherManager.currentLobby == null)
+			{
+				return;
+			}
+
+			MemoryStream memoryStream = new MemoryStream();
+			using (BinaryWriter binaryWriter = new BinaryWriter(memoryStream))
+			{
+				binaryWriter.Write((int)NetDataType.LobbyClosed);
+				binaryWriter.Write(TogetherManager.currentLobby.steamID.m_SteamID);
+				binaryWriter.Write(reason ?? string.Empty);
+			}
+			Service()?.SendPacket(memoryStream.ToArray());
+		}
 
 		public static SteamIntegration Service()
 		{
@@ -378,13 +414,38 @@ namespace MultiplayerDeck
 		{
 			if (TogetherManager.currentLobby != null)
 			{
-				if (TogetherManager.currentLobby.IsOwner())
+				bool wasOwner = TogetherManager.currentLobby.IsOwner();
+				if (wasOwner && TogetherManager.players.Count > 1)
 				{
 					TogetherManager.currentLobby.NewOwner();
 				}
 				TogetherManager.currentLobby.LeaveLobby();
 				TogetherManager.ClearMultiplayerData();
+				VoteManager.Instance.AbortCurrentVote();
 			}
+		}
+
+		public static void DisbandLobby()
+		{
+			if (TogetherManager.currentLobby == null)
+			{
+				return;
+			}
+
+			if (!TogetherManager.currentLobby.IsOwner())
+			{
+				LeaveLobby();
+				return;
+			}
+
+			SendLobbyClosed("Owner disbanded lobby");
+			//SendLobbyClosed("Owner disbanded lobby");
+			//SendLobbyClosed("Owner disbanded lobby");
+			TogetherManager.currentLobby.SetJoinable(false);
+			TogetherManager.currentLobby.SetPrivate(true);
+			TogetherManager.currentLobby.LeaveLobby();
+			TogetherManager.ClearMultiplayerData();
+			VoteManager.Instance.AbortCurrentVote();
 		}
 
 		public static void GetLobbies()
@@ -395,6 +456,11 @@ namespace MultiplayerDeck
 
 		public static void AddPlayer(RemotePlayer player)
 		{
+			if (player == null)
+			{
+				return;
+			}
+
 			foreach (RemotePlayer player2 in TogetherManager.players)
 			{
 				if (player2.IsUser(player.steamUser))
@@ -404,11 +470,26 @@ namespace MultiplayerDeck
 			}
 			TogetherManager.players.Add(player);
 			Debug.Log("Member joined: " + player.userName);
+			VoteManager.Instance.SyncPlayersWithLobby();
 		}
 
 		public static void RemovePlayer(RemotePlayer player)
 		{
+			if (player == null)
+			{
+				return;
+			}
 
+			for (int i = TogetherManager.players.Count - 1; i >= 0; i--)
+			{
+				if (TogetherManager.players[i].IsUser(player.steamUser))
+				{
+					Debug.Log("Member left: " + TogetherManager.players[i].userName);
+					TogetherManager.players.RemoveAt(i);
+				}
+			}
+
+			VoteManager.Instance.SyncPlayersWithLobby();
 		}
 	}
 }

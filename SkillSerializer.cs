@@ -26,7 +26,11 @@ namespace MultiplayerDeck
             int skillCount = reader.ReadInt32();
             for (int i = 0; i < skillCount; i++)
             {
-                list.Add(CreateSkillFromDTO(ReadDTO(reader)));
+                Skill skill = CreateSkillFromDTO(ReadDTO(reader));
+                if (skill != null)
+                {
+                    list.Add(skill);
+                }
             }
             return list;
         }
@@ -97,10 +101,14 @@ namespace MultiplayerDeck
         // 转 DTO
         public static SkillNetworkDTO SkillToDTO(Skill skill)
         {
+            if (skill == null)
+            {
+                return null;
+            }
             return new SkillNetworkDTO
             {
-                SkillKey = skill.MySkill?.KeyID,
-                MasterKey = skill.Master?.Info.KeyData,
+                SkillKey = skill.MySkill.KeyID,
+                MasterKey = skill.Master.Info.KeyData,
                 ExtendedData = skill.AllExtendeds
                     .Where(se => se.Data != null && !se.isDataExtended)
                     .Select(se => (se.Data.Key, se.BattleExtended)).ToList()
@@ -110,12 +118,17 @@ namespace MultiplayerDeck
         // 从 DTO 重建（需要在游戏上下文环境中）
         public static Skill CreateSkillFromDTO(SkillNetworkDTO dto)
         {
-            if (BattleSystem.instance == null)
+            if (BattleSystem.instance == null || dto == null)
             {
                 return null;
             }
 
             BattleChar master = FindBestLocalMaster(dto.MasterKey);
+            if (master == null)
+            {
+                return null;
+            }
+
             Skill skill = Skill.TempSkill(dto.SkillKey, master, master.MyTeam);
             foreach ((string key, bool battle) seData in dto.ExtendedData)
             {
@@ -134,18 +147,25 @@ namespace MultiplayerDeck
         public static BattleChar FindBestLocalMaster(string originalMaster)
         {
             List<BattleChar> allChars = BattleSystem.instance.AllyTeam.Chars;
-            List<BattleChar> aliveChars = BattleSystem.instance.AllyTeam.AliveChars;
+            if (allChars == null || allChars.Count == 0)
+            {
+                return null;
+            }
+  
             BattleChar battleChar = allChars.FirstOrDefault(bc => bc.Info.KeyData == originalMaster);
             if (battleChar != null)
             {
                 return battleChar;
             }
+
             GDECharacterData originalMasterData = new GDECharacterData(originalMaster);
+            List<BattleChar> aliveChars = BattleSystem.instance.AllyTeam.AliveChars;
             battleChar = aliveChars.FindAll(bc => bc.Info.GetData.Role.Key == originalMasterData.Role.Key).Random();
             if (battleChar != null)
             {
                 return battleChar;
             }
+
             return aliveChars.Random();
         }
     }

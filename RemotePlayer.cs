@@ -48,12 +48,25 @@ namespace MultiplayerDeck
 					Debug.LogException(ex);
 				}
 				pixmap = new Texture2D((int)num, (int)num2, (TextureFormat)4, false);
-				pixmap.LoadRawTextureData(array);
+				pixmap.LoadRawTextureData(FlipTextureVertically(array, (int)num, (int)num2));
 				pixmap.Apply();
 				CSteamID val = steamUser;
 				avatarID = imageID;
 				Debug.Log("We have completed creating the Steam image");
 			}
+		}
+
+		private static byte[] FlipTextureVertically(byte[] data, int width, int height)
+		{
+			int rowSize = width * 4;
+			byte[] flipped = new byte[data.Length];
+
+			for (int y = 0; y < height; y++)
+			{
+				Buffer.BlockCopy(data, y * rowSize, flipped, (height - 1 - y) * rowSize, rowSize);
+			}
+
+			return flipped;
 		}
 
 		public bool IsUser(CSteamID player)

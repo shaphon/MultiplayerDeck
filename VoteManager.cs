@@ -41,7 +41,7 @@ namespace MultiplayerDeck
             {
                 if (TogetherManager.currentLobby != null)
                 {
-                    return TogetherManager.players.Count;
+                    return Math.Max(1, TogetherManager.players.Count);
                 }
                 return 1;
             }
@@ -64,6 +64,7 @@ namespace MultiplayerDeck
         private VoteUI currentVoteUI;
 
         public event Action<VoteSession> OnVoteStarted;
+        public event Action<VoteSession> OnVoteUpdated;
         public event Action<VoteSession> OnVoteEnded;
 
         public void StartVote(VoteTheme voteTheme, Action onVoteComplete)
@@ -85,9 +86,14 @@ namespace MultiplayerDeck
             {
                 currentVoteSession.playerVotes[player.steamUser.m_SteamID] = false;
             }
+            if (TogetherManager.currentUser != null && !currentVoteSession.playerVotes.ContainsKey(TogetherManager.currentUser.steamUser.m_SteamID))
+            {
+                currentVoteSession.playerVotes[TogetherManager.currentUser.steamUser.m_SteamID] = false;
+            }
 
             Debug.Log($"Started vote for: {voteTheme}");
             OnVoteStarted?.Invoke(currentVoteSession);
+            OnVoteUpdated?.Invoke(currentVoteSession);
         }
 
         public void Vote(VoteTheme voteTheme, bool cancel = false)
@@ -104,10 +110,15 @@ namespace MultiplayerDeck
                 currentVoteSession.playerVotes[playerId] = !cancel;
                 Debug.Log($"Player {TogetherManager.currentUser.userName} voted: {(cancel ? "No" : "Yes")}");
             }
+            else
+            {
+                currentVoteSession.playerVotes.Add(playerId, !cancel);
+            }
 
             // 发送投票到网络
             NetworkHelper.SendVote(voteTheme, playerId, cancel);
 
+            OnVoteUpdated?.Invoke(currentVoteSession);
             CheckVoteCompletion();
         }
 
@@ -130,7 +141,12 @@ namespace MultiplayerDeck
                 currentVoteSession.playerVotes[playerId] = !cancel;
                 Debug.Log($"Received vote from network - Player {playerId}: {(cancel ? "No" : "Yes")}");
             }
+            else
+            {
+                currentVoteSession.playerVotes.Add(playerId, !cancel);
+            }
 
+            OnVoteUpdated?.Invoke(currentVoteSession);
             CheckVoteCompletion();
         }
 
@@ -162,7 +178,65 @@ namespace MultiplayerDeck
 
         public void AbortCurrentVote()
         {
+            if (currentVoteSession != null)
+            {
+                currentVoteSession.isActive = false;
+                OnVoteEnded?.Invoke(currentVoteSession);
+            }
             currentVoteSession = null;
+        }
+
+        public void SyncPlayersWithLobby()
+        {
+            if (currentVoteSession == null || !currentVoteSession.isActive)
+            {
+                return;
+            }
+
+            HashSet<ulong> activePlayers = new HashSet<ulong>();
+            foreach (RemotePlayer player in TogetherManager.players)
+            {
+                activePlayers.Add(player.steamUser.m_SteamID);
+                if (!currentVoteSession.playerVotes.ContainsKey(player.steamUser.m_SteamID))
+                {
+                    currentVoteSession.playerVotes[player.steamUser.m_SteamID] = false;
+                }
+            }
+
+            List<ulong> removedPlayers = currentVoteSession.playerVotes.Keys.Where(id => !activePlayers.Contains(id)).ToList();
+            foreach (ulong playerId in removedPlayers)
+            {
+                currentVoteSession.playerVotes.Remove(playerId);
+            }
+
+            OnVoteUpdated?.Invoke(currentVoteSession);
+            CheckVoteCompletion();
+        }
+
+        public bool HasPlayerVotedYes(RemotePlayer player)
+        {
+            if (player == null || currentVoteSession == null || !currentVoteSession.isActive)
+            {
+                return false;
+            }
+
+            bool voted;
+            return currentVoteSession.playerVotes.TryGetValue(player.steamUser.m_SteamID, out voted) && voted;
+        }
+
+        public bool HasLocalPlayerVotedYes()
+        {
+            return HasPlayerVotedYes(TogetherManager.GetCurrentUser());
+        }
+
+        public int GetYesVoteCount()
+        {
+            if (currentVoteSession == null || !currentVoteSession.isActive)
+            {
+                return 0;
+            }
+
+            return currentVoteSession.playerVotes.Values.Count(voted => voted);
         }
     }
     

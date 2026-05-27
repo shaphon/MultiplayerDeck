@@ -146,12 +146,20 @@ namespace MultiplayerDeck
 
         public void MonsterClear(Vector2 Pos)
         {
+            if (StageSystem.instance.Map == null 
+                || StageSystem.instance.Map.MapObject == null
+                || Pos.x >= StageSystem.instance.Map.MapObject.GetLength(0)
+                || Pos.y >= StageSystem.instance.Map.MapObject.GetLength(1)
+                || StageSystem.instance.Map.EventTileList == null)
+            {
+                return;
+            }
             StageSystem.instance.Map.MapObject[(int)Pos.x, (int)Pos.y].Info.Type = new Road();
             StageSystem.instance.Map.EventTileList.Remove(StageSystem.instance.Map.MapObject[(int)Pos.x, (int)Pos.y]);
             StageSystem.instance.Map.MapObject[(int)Pos.x, (int)Pos.y].Info.Cursed = false;
-            StageSystem.instance.Map.MapObject[(int)Pos.x, (int)Pos.y].MonsterEffect.GetComponentInChildren<ParticleSystem>().emissionRate = 0f;
             if (StageSystem.instance.Map.MapObject[(int)Pos.x, (int)Pos.y].MonsterEffect != null)
             {
+                StageSystem.instance.Map.MapObject[(int)Pos.x, (int)Pos.y].MonsterEffect.GetComponentInChildren<ParticleSystem>().emissionRate = 0f;
                 Object.Destroy(StageSystem.instance.Map.MapObject[(int)Pos.x, (int)Pos.y].MonsterEffect);
             }
             StageSystem.instance.UpdateMove();

@@ -84,7 +84,14 @@ namespace MultiplayerDeck
 
 		public int GetMemberCount()
 		{
-			return memberNames.Count();
+			try
+			{
+				return SteamMatchmaking.GetNumLobbyMembers(steamID);
+			}
+			catch
+			{
+				return memberNames.Count();
+			}
 		}
 
 		public List<RemotePlayer> GetLobbyMembers()
@@ -159,7 +166,14 @@ namespace MultiplayerDeck
 
 		public int GetCapacity()
 		{
-			return 10;
+			try
+			{
+				return SteamMatchmaking.GetLobbyMemberLimit(steamID);
+			}
+			catch
+			{
+				return capacity;
+			}
 		}
 
 		public string GetMetadata(string key)

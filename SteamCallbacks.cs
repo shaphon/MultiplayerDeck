@@ -73,6 +73,8 @@ namespace MultiplayerDeck
                     Debug.Log("MakeCurrentLobby:Success");
                 }
                 TogetherManager.players = TogetherManager.currentLobby.GetLobbyMembers();
+                NetworkHelper.AddPlayer(TogetherManager.currentUser);
+                VoteManager.Instance.SyncPlayersWithLobby();
                 NetworkHelper.SendData(NetDataType.Version);
             }
             else
@@ -125,7 +127,13 @@ namespace MultiplayerDeck
             {
                 NetworkHelper.RemovePlayer(player);
             }
+            if (TogetherManager.currentLobby == null)
+            {
+                return;
+            }
             TogetherManager.currentLobby.GetOwnerName();
+            TogetherManager.players = TogetherManager.currentLobby.GetLobbyMembers();
+            VoteManager.Instance.SyncPlayersWithLobby();
             if (TogetherManager.currentLobby.IsOwner())
             {
                 SteamMatchmaking.SetLobbyData(lobby, "members", TogetherManager.currentLobby.GetMemberNameList());
@@ -173,8 +181,9 @@ namespace MultiplayerDeck
                 lobby.ToString()
             }));
             TogetherManager.currentLobby = new SteamLobby(NetworkHelper.steam, new CSteamID(lobby));
-            NetworkHelper.UpdateLobbyData();
+            TogetherManager.players = TogetherManager.currentLobby.GetLobbyMembers();
             NetworkHelper.AddPlayer(new RemotePlayer(SteamMatchmaking.GetLobbyOwner(new CSteamID(lobby))));
+            NetworkHelper.UpdateLobbyData();
             NetworkHelper.SendData(NetDataType.Version);
         }
 
@@ -190,6 +199,8 @@ namespace MultiplayerDeck
             SteamMatchmaking.JoinLobby(steamIDLobby);
             TogetherManager.currentLobby = new SteamLobby(NetworkHelper.steam, steamIDLobby);
             TogetherManager.players = TogetherManager.currentLobby.GetLobbyMembers();
+            NetworkHelper.AddPlayer(TogetherManager.currentUser);
+            VoteManager.Instance.SyncPlayersWithLobby();
         }
 
         public static void onGameLobbyJoinRequested(GameLobbyJoinRequested_t callback)
