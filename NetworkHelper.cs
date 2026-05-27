@@ -23,8 +23,10 @@ namespace MultiplayerDeck
 		TurnActionNum,
 		ExchangeSkill,
 		SkillPlayed,
+		VoteStart,
 		Vote,
 		StageMap,
+		NextStageComplete,
 		MonsterClear,
 		BossClear,
 		LobbyClosed
@@ -115,7 +117,9 @@ namespace MultiplayerDeck
 						}
 						case NetDataType.BattleStartDeck:
 						{
-							if (TogetherManager.currentLobby.IsOwner())
+                            Debug.Log("[DeckSync] Received BattleStartDeck. IsOwner=" + TogetherManager.currentLobby.IsOwner());
+
+                            if (TogetherManager.currentLobby.IsOwner())
 							{
 								List<SkillNetworkDTO> deck = SkillSerializer.SkillDTOListDeserialize(binaryReader);
 								BattleSyncManager.Instance.ReceiveDeckContribution(playerInfo, deck);
@@ -129,6 +133,11 @@ namespace MultiplayerDeck
 						}
 						case NetDataType.DeckState:
 						{
+							if (!BattleSyncManager.Instance.battleStartDeckManager.deckReceived)
+							{
+								Debug.Log("[DeckSync] Ignored DeckState before battle start deck sync completed.");
+								break;
+							}
 							bool usedDeck = binaryReader.ReadBoolean();
 							List<Skill> skills = SkillSerializer.SkillListDeserialize(binaryReader);
 							BattleSyncManager.Instance.ApplyDeckState(usedDeck, skills);
@@ -170,12 +179,30 @@ namespace MultiplayerDeck
 							VoteManager.Instance.VoteFromNetwork(voteTheme, playerId, cancel);
 							break;
 						}
+						case NetDataType.VoteStart:
+						{
+							VoteManager.VoteTheme voteTheme = (VoteManager.VoteTheme)binaryReader.ReadInt32();
+							VoteManager.Instance.StartVoteFromNetwork(voteTheme);
+							break;
+						}
 						case NetDataType.StageMap:
 						{
 							if (!MultiplayerDeck_Plugin.IsLobbyOwner)
 							{
 								StageMapSyncHelper.mapPacket = StageMapSyncHelper.DeserializeMapPacket(data);
 								StageSyncManager.Instance.GotoNextStage();
+							}
+							break;
+						}
+						case NetDataType.NextStageComplete:
+						{
+							if (MultiplayerDeck_Plugin.IsLobbyOwner)
+							{
+								StageSyncManager.Instance.PlayerNextStageComplete(playerInfo);
+							}
+							else
+							{
+								VoteManager.Instance.syncing = false;
 							}
 							break;
 						}
@@ -200,7 +227,7 @@ namespace MultiplayerDeck
 							{
 								Debug.Log("[MultiplayerDeck] Lobby closed by owner: " + reason);
 								TogetherManager.ClearMultiplayerData();
-								VoteManager.Instance.AbortCurrentVote();
+								VoteManager.Instance.AbortAllVotes();
 							}
 							break;
 						}
@@ -220,7 +247,10 @@ namespace MultiplayerDeck
 					}
 				}
 			}
-			catch (Exception ex) { }
+			catch (Exception e)
+			{
+				Debug.LogException(e);
+			}
 		}
 
 		public static void SendData(NetDataType type)
@@ -375,6 +405,17 @@ namespace MultiplayerDeck
 			Service()?.SendPacket(memoryStream.ToArray());
 		}
 
+		public static void SendVoteStart(VoteManager.VoteTheme voteTheme)
+		{
+			MemoryStream memoryStream = new MemoryStream();
+			using (BinaryWriter binaryWriter = new BinaryWriter(memoryStream))
+			{
+				binaryWriter.Write((int)NetDataType.VoteStart);
+				binaryWriter.Write((int)voteTheme);
+			}
+			Service()?.SendPacket(memoryStream.ToArray());
+		}
+
 		public static SteamIntegration Service()
 		{
 			if (TogetherManager.currentLobby == null)
@@ -421,7 +462,7 @@ namespace MultiplayerDeck
 				}
 				TogetherManager.currentLobby.LeaveLobby();
 				TogetherManager.ClearMultiplayerData();
-				VoteManager.Instance.AbortCurrentVote();
+				VoteManager.Instance.AbortAllVotes();
 			}
 		}
 
@@ -445,7 +486,7 @@ namespace MultiplayerDeck
 			TogetherManager.currentLobby.SetPrivate(true);
 			TogetherManager.currentLobby.LeaveLobby();
 			TogetherManager.ClearMultiplayerData();
-			VoteManager.Instance.AbortCurrentVote();
+			VoteManager.Instance.AbortAllVotes();
 		}
 
 		public static void GetLobbies()

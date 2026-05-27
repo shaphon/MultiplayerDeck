@@ -56,7 +56,7 @@ namespace MultiplayerDeck
 
         public void ApplyDeckState(bool usedDeck, List<Skill> newDeck)
         {
-            if (BattleSystem.instance == null)
+            if (BattleSystem.instance == null || newDeck == null)
             {
                 return;
             }
@@ -87,7 +87,7 @@ namespace MultiplayerDeck
             {
                 turnActionNumSyncing = true;
                 BattleSystem.instance.AllyTeam.TurnActionNum = value;
-                if (!BattleSystem.instance.EnemyCheck)
+                if (!BattleSystem.instance.EnemyCheck && !BattleSystem.instance.NowEndedTurn)
                 {
                     BattleSystem.instance.StartCoroutine(BattleSystem.instance.EnemyTurn(false));
                 }
@@ -115,6 +115,10 @@ namespace MultiplayerDeck
         private void SendDeckStateWhenChanged()
         {
             if (!MultiplayerDeck_Plugin.IsMultiplayer)
+            {
+                return;
+            }
+            if (!battleStartDeckManager.deckReceived)
             {
                 return;
             }
@@ -262,20 +266,42 @@ namespace MultiplayerDeck
 
         public void SendRequestForBattleStartDeck()
         {
+            Debug.Log("[DeckSync] SendRequestForBattleStartDeck()");
+
             if (TogetherManager.currentLobby == null || !TogetherManager.currentLobby.IsOwner())
             {
                 return;
             }
 
-            combinedDeck.AddRange(BattleSystem.instance.AllyTeam.Skills_Deck.Select(s => SkillSerializer.SkillToDTO(s)));
+            if (BattleSystem.instance == null || BattleSystem.instance.AllyTeam == null)
+            {
+                Debug.LogWarning("[DeckSync] Cannot request deck before BattleSystem is ready.");
+                return;
+            }
+
+            combinedDeck.AddRange(BattleSystem.instance.AllyTeam.Skills_Deck
+                .Select(s => SkillSerializer.SkillToDTO(s))
+                .Where(dto => dto != null));
+
+            Debug.Log("[DeckSync] Host deck DTO count: " + combinedDeck.Count);
+
+            if (TogetherManager.players.Count <= 1)
+            {
+                deckReceived = true;
+                return;
+            }
 
             BattleSystem.instance.StartCoroutine(SendRequest());
             IEnumerator SendRequest()
             {
+                Debug.Log("[DeckSync] BattleSystem.instance.StartCoroutine(SendRequest());");
+
                 while (deckContributions.Count < TogetherManager.players.Count - 1)
                 {
+                    Debug.Log("[DeckSync] Host sending request for battle start deck");
+
                     NetworkHelper.SendData(NetDataType.RequestForBattleStartDeck);
-                    yield return new WaitForSecondsRealtime(1f);
+                    yield return new WaitForSecondsRealtime(0.2f);
                 }
             }
         }
@@ -286,6 +312,9 @@ namespace MultiplayerDeck
             {
                 return;
             }
+
+            int deckCount = BattleSystem.instance.AllyTeam?.Skills_Deck?.Count ?? 0;
+            Debug.Log("[DeckSync] Client received request. Send personal deck count: " + deckCount);
 
             MemoryStream memoryStream = new MemoryStream();
             using (BinaryWriter binaryWriter = new BinaryWriter(memoryStream))
@@ -307,17 +336,34 @@ namespace MultiplayerDeck
             ulong playerID = player.steamUser.m_SteamID;
             if (!deckContributions.Contains(playerID))
             {
-                combinedDeck.AddRange(deck);
+                if (deck != null)
+                {
+                    combinedDeck.AddRange(deck.Where(dto => dto != null));
+                }
                 deckContributions.Add(playerID);
+
+                Debug.Log("[DeckSync] Host received deck contribution. Player ID: " + playerID + ", dto count: " + (deck == null ? -1 : deck.Count));
             }
 
             if (deckContributions.Count == TogetherManager.players.Count - 1)
             {
+                combinedDeck = BattleTeam.Shuffle<SkillNetworkDTO>(combinedDeck);
+
                 List<Skill> newDeck = combinedDeck
-                    .Select(s => SkillSerializer.CreateSkillFromDTO(s))
+                    .Select((s, index) => SkillSerializer.CreateSkillFromDTO(s, index))
                     .Where(s => s != null)
                     .ToList();
-                BattleSyncManager.Instance.ApplyDeckState(false, newDeck);
+
+
+                Debug.Log("[DeckSync] Host rebuilt combined deck count: " + newDeck.Count);
+                if (combinedDeck.Count > 0 && newDeck.Count == 0)
+                {
+                    Debug.LogError("[DeckSync] Host rebuilt combined deck as 0. Keeping local deck to avoid clearing it.");
+                }
+                else
+                {
+                    BattleSyncManager.Instance.ApplyDeckState(false, newDeck);
+                }
                 deckReceived = true;
                 
                 SendCombinedDeck();
@@ -331,6 +377,8 @@ namespace MultiplayerDeck
                 return;
             }
 
+            Debug.Log("[DeckSync] Host sending combined DTO count: " + combinedDeck.Count);
+
             MemoryStream memoryStream = new MemoryStream();
             using (BinaryWriter binaryWriter = new BinaryWriter(memoryStream))
             {
@@ -342,12 +390,21 @@ namespace MultiplayerDeck
 
         public void ReceiveCombinedDeck(RemotePlayer player, List<Skill> deck)
         {
+            Debug.Log("[DeckSync] Client ReceiveCombinedDeck deck count: " + (deck == null ? -1 : deck.Count));
+
             if (TogetherManager.currentLobby == null || TogetherManager.currentLobby.IsOwner())
             {
                 return;
             }
+
+            if (deck == null || deck.Count == 0)
+            {
+                Debug.LogError("[DeckSync] Client received empty combined deck. Keeping local deck and releasing battle start wait.");
+                deckReceived = true;
+                return;
+            }
+
             BattleSyncManager.Instance.ApplyDeckState(false, deck);
-            BattleSystem.instance.AllyTeam.ShuffleDeck();
             deckReceived = true;
         }
     }

@@ -30,12 +30,15 @@ namespace MultiplayerDeck
         }
 
         public bool bossClear;
+        public bool forceNextStage;
+        private HashSet<ulong> playersNextStageComplete = new HashSet<ulong>();
         private string lastBattleKey;
 
         public void Initialize()
         {
             bossClear = false;
-            VoteManager.Instance.AbortCurrentVote();
+            playersNextStageComplete.Clear();
+            VoteManager.Instance.AbortAllVotes();
         }
 
         public void Tick()
@@ -71,76 +74,69 @@ namespace MultiplayerDeck
                 return;
             }
 
-            FieldSystem.instance.BattleStart(new GDEEnemyQueueData(QueueData),
-                StageSystem.instance.StageData.BattleMap.Key,
-                NormalBattle,
-                Cursed,
-                RewardKey,
-                Preset,
-                NoGameover);
+            FieldSystem.DelayInput(BattleStart());
+            IEnumerator BattleStart()
+            {
+                FieldSystem.instance.BattleStart(new GDEEnemyQueueData(QueueData), StageSystem.instance.StageData.BattleMap.Key, NormalBattle, Cursed, RewardKey, Preset, NoGameover);
+                yield break;
+            }
         }
 
-        public void GotoNextStage()
+        public void GotoNextStage(bool crimson = false, bool azar = false)
         {
+            forceNextStage = true;
+            VoteManager.Instance.syncing = true;
             Initialize();
 
-            if (StageSystem.instance?.Map?.MainCamp != null)
+            if (crimson)
             {
-                FieldSystem.DelayInput(Camp._NextMap());
+                UnityEngine.Object.FindObjectOfType<RedWall>()?.Enter();
                 return;
             }
 
-            if (UnityEngine.Object.FindObjectOfType<MiniBossObject>() != null)
+            if (azar)
             {
-                FieldSystem.instance.StartCoroutine(_Camp());
-                IEnumerator _Camp()
-                {
-                    yield return UIManager.inst.FadeBlack_Out(1f);
-                    FieldSystem.instance.NextStage();
-                    yield return UIManager.inst.FadeBlack_In(1f);
-                }
+                StageSystem.instance?.Map?.MainCamp?.NextMap_Master();
                 return;
             }
 
-            if (UnityEngine.Object.FindObjectOfType<Stage1Events>() != null)
+            var camp = StageSystem.instance?.Map?.MainCamp;
+            if (camp != null)
             {
-                Debug.Log(string.Format("Start ReturnArk, stage key: {0}[{1}], now date: {2}", PlayData.TSavedata.NowStageMapKey, PlayData.TSavedata.StageNum, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")));
-                StageSystem.instance.CanNextStage = false;
-                FieldSystem.instance.BackButtonAni.SetBool("On", false);
-                FieldSystem.DelayInput(FieldSystem.instance._ReturnArkbutton(false));
+                camp.NextMap();
                 return;
             }
 
-            if (StageSystem.instance == null || StageSystem.instance.Map == null)
+            var miniBossObject = UnityEngine.Object.FindObjectOfType<MiniBossObject>();
+            if (miniBossObject != null)
             {
-                FieldSystem.instance.StartCoroutine(StageEnter());
-                IEnumerator StageEnter()
-                {
-                    foreach (SoundGroupVariation soundGroupVariation in MasterAudio.GetAllPlayingVariationsInBus("Ambi"))
-                    {
-                        soundGroupVariation.FadeOutNow();
-                    }
-                    foreach (SoundGroupVariation soundGroupVariation2 in MasterAudio.GetAllPlayingVariationsInBus("BGM"))
-                    {
-                        soundGroupVariation2.FadeOutNow();
-                    }
-                    MasterAudio.FadeOutAllOfSound("bangjoo_side_loop", 4f);
-                    MasterAudio.FadeOutAllOfSound("bangjoo_side_ambience", 4f);
-                    yield return FieldSystem.instance.StartCoroutine(UIManager.inst.FadeSquare_Out());
-                    yield return new WaitForSeconds(1f);
-                    if (SaveManager.NowData.GameOptions.CasualMode && SaveManager.savemanager.TempSave != null && SaveManager.savemanager.TempSave.Party.Count != 0)
-                    {
-                        SaveManager.savemanager.OneSaveLoad();
-                        FieldSystem.LoadOneSaveMap();
-                        yield return new WaitForSeconds(3f);
-                    }
-                    else
-                    {
-                        FieldSystem.instance.StageStart("");
-                        yield return new WaitForSeconds(3f);
-                    }
-                }
+                miniBossObject.GoCamp();
                 return;
+            }
+
+            var stage1Events = UnityEngine.Object.FindObjectOfType<Stage1Events>();
+            if (stage1Events != null)
+            {
+                FieldSystem.instance.ReturnArkButton();
+                return;
+            }
+
+            var door = UnityEngine.Object.FindObjectOfType<Door>();
+            if (door != null)
+            {
+                door.Trigger();
+                return;
+            }
+        }
+
+        public void PlayerNextStageComplete(RemotePlayer playerInfo)
+        {
+            playersNextStageComplete.Add(playerInfo.steamUser.m_SteamID);
+
+            if (playersNextStageComplete.Count == TogetherManager.players.Count - 1)
+            {
+                NetworkHelper.SendData(NetDataType.NextStageComplete);
+                VoteManager.Instance.syncing = false;
             }
         }
 
@@ -170,15 +166,21 @@ namespace MultiplayerDeck
             var m = UnityEngine.Object.FindObjectOfType<MiniBossObject>();
             if (m != null)
             {
+                Debug.Log("[BossClear] MiniBossClear Complete");
                 m.BossClear = true;
+                m.BossFogObject.SetActive(false);
                 return;
             }
             var s = UnityEngine.Object.FindObjectOfType<Stage1Events>();
             if (s != null)
             {
+                Debug.Log("[BossClear] BossClear Complete");
                 s.BossClear = true;
+                s.BossFogObject.SetActive(false);
                 return;
             }
+
+            Debug.Log("[BossClear] Boss Object Not Found");
         }
     }
 }

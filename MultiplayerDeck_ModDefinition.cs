@@ -47,22 +47,13 @@ namespace MultiplayerDeck
 
         public void Turn()
         {
-            VoteManager.Instance.StartVote(VoteManager.VoteTheme.TurnEnd, TurnEnd);
+            VoteManager.Instance.StartVote(VoteManager.VoteTheme.TurnEnd);
         }
 
         public IEnumerator ParticleOut_After_Global(Skill SkillD, List<BattleChar> Targets)
         {
             NetworkHelper.SendSkillPlayed(SkillD.MySkill.Name);
             yield break;
-        }
-
-        private void TurnEnd()
-        {
-            BattleSystem.instance.TargetSelectCancel();
-            BattleSystem.instance.ActWindow.WasteButton.Quit();
-            BattleSystem.instance.ActWindow.On = false;
-            BattleSystem.instance.ActWindow.TurnEndFlag = true;
-            BattleSystem.instance.StartCoroutine(BattleSystem.instance.EnemyTurn(true));
         }
     }
 }

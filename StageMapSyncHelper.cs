@@ -21,15 +21,11 @@ namespace MultiplayerDeck
             public Data_Map MapData;
         }
 
-        public static NetStageMapPacket CreateMapPacket(HexMap map)
+        public static NetStageMapPacket CreateMapPacket()
         {
 
-            //var mapData = new Data_Map();
-            //mapData.Save();
-            // 如果你现在仍然用 mapData.Save()，它依赖 StageSystem.instance.Map，
-            // 在 Postfix 里 StageSystem.instance.Map 可能还没赋值成 __result。
-            // 最好写一个 SaveFromMap(map)。
-            var mapData = SaveFromMap(map);
+            var mapData = new Data_Map();
+            mapData.Save();     // 依赖StageSystem.instance.Map
 
             return new NetStageMapPacket
             {
@@ -37,52 +33,6 @@ namespace MultiplayerDeck
                 StageNum = PlayData.TSavedata.StageNum,
                 MapData = mapData
             };
-        }
-
-        public static Data_Map SaveFromMap(HexMap map)
-        {
-            var data = new Data_Map();
-
-            data.StageDataKey = map.StageData.Key;
-            data.MapSize = map.Size;
-            data.MapTileInfo = new List<List<Data_MapTileData>>();
-
-            for (int x = 0; x < map.Size.x; x++)
-            {
-                data.MapTileInfo.Add(new List<Data_MapTileData>());
-
-                for (int y = 0; y < map.Size.y; y++)
-                {
-                    data.MapTileInfo[x].Add(new Data_MapTileData
-                    {
-                        MainTileInfo = map.MapObject[x, y].Info
-                    });
-                }
-            }
-
-            foreach (MapTile eventTile in map.EventTileList)
-            {
-                var tileData = data.MapTileInfo[(int)eventTile.Pos.x][(int)eventTile.Pos.y];
-                tileData.IsEventList = true;
-
-                if (eventTile.TileEventObject != null &&
-                    eventTile.TileEventObject.MainBaseEventObject != null &&
-                    eventTile.TileEventObject.MainBaseEventObject.MainSaveData != null)
-                {
-                    tileData.BaseEvent = eventTile.TileEventObject.MainBaseEventObject.MainSaveData;
-                    tileData.BaseEvent.Save();
-                    tileData.BaseEvent.IsUsed = eventTile.TileEventObject.BUseless;
-                    tileData.BaseEvent.EventMonster = eventTile.TileEventObject.Monster;
-                }
-            }
-
-            if (map.MainCamp != null)
-            {
-                map.MainCamp.Save.Save();
-                data.CampSaveData = map.MainCamp.Save;
-            }
-
-            return data;
         }
 
         public static byte[] SerializeMapPacket(NetStageMapPacket packet)

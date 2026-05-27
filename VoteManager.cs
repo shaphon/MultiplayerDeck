@@ -10,7 +10,10 @@ namespace MultiplayerDeck
         public enum VoteTheme
         {
             TurnEnd,
-            NextStage
+            NextStage,
+            FirstStage,
+            EnterCrimson,
+            EnterAzar
         }
 
         public class VoteSession
@@ -19,6 +22,7 @@ namespace MultiplayerDeck
             public Dictionary<ulong, bool> playerVotes = new Dictionary<ulong, bool>();
             public Action onVoteComplete;
             public bool isActive;
+
             public bool IsCompleted
             {
                 get
@@ -33,8 +37,7 @@ namespace MultiplayerDeck
 
             private bool AreAllPlayersVoted()
             {
-                var totalPlayers = GetTotalPlayerCount();
-                return playerVotes.Count >= totalPlayers;
+                return playerVotes.Count >= GetTotalPlayerCount();
             }
 
             public int GetTotalPlayerCount()
@@ -60,186 +63,343 @@ namespace MultiplayerDeck
             }
         }
 
-        public VoteSession currentVoteSession;
+        private readonly Dictionary<VoteTheme, VoteSession> activeVotes = new Dictionary<VoteTheme, VoteSession>();
+        private readonly Dictionary<VoteTheme, Action> voteCallbacks = new Dictionary<VoteTheme, Action>();
         private VoteUI currentVoteUI;
 
         public event Action<VoteSession> OnVoteStarted;
         public event Action<VoteSession> OnVoteUpdated;
         public event Action<VoteSession> OnVoteEnded;
 
+        public bool syncing;
+
+        public IReadOnlyList<VoteSession> GetActiveVotes()
+        {
+            return activeVotes.Values.Where(vote => vote != null && vote.isActive).OrderBy(vote => vote.voteTheme).ToList();
+        }
+
+        public bool HasActiveVote(VoteTheme voteTheme)
+        {
+            VoteSession session;
+            return activeVotes.TryGetValue(voteTheme, out session) && session != null && session.isActive;
+        }
+
+        public VoteSession GetVote(VoteTheme voteTheme)
+        {
+            VoteSession session;
+            if (activeVotes.TryGetValue(voteTheme, out session) && session != null && session.isActive)
+            {
+                return session;
+            }
+            return null;
+        }
+
+        public void StartVote(VoteTheme voteTheme)
+        {
+            StartVoteInternal(voteTheme, GetCallbackForTheme(voteTheme), true);
+        }
+
         public void StartVote(VoteTheme voteTheme, Action onVoteComplete)
         {
-            /*if (currentVoteSession != null && currentVoteSession.isActive)
-            {
-                Debug.LogWarning("There's already an active vote session!");
-                return;
-            }*/
+            StartVoteInternal(voteTheme, onVoteComplete, true);
+        }
 
-            currentVoteSession = new VoteSession
+        public void StartVoteFromNetwork(VoteTheme voteTheme)
+        {
+            if (syncing)
+            {
+                return;
+            }
+            StartVoteInternal(voteTheme, GetCallbackForTheme(voteTheme), false);
+        }
+
+        private VoteSession StartVoteInternal(VoteTheme voteTheme, Action onVoteComplete, bool broadcast)
+        {
+            VoteSession existing = GetVote(voteTheme);
+            if (existing != null)
+            {
+                return existing;
+            }
+
+            if (onVoteComplete != null)
+            {
+                voteCallbacks[voteTheme] = onVoteComplete;
+            }
+
+            VoteSession session = new VoteSession
             {
                 voteTheme = voteTheme,
-                onVoteComplete = onVoteComplete,
+                onVoteComplete = onVoteComplete ?? GetCallbackForTheme(voteTheme),
                 isActive = true
             };
 
-            foreach (var player in TogetherManager.players)
+            foreach (RemotePlayer player in TogetherManager.players)
             {
-                currentVoteSession.playerVotes[player.steamUser.m_SteamID] = false;
+                session.playerVotes[player.steamUser.m_SteamID] = false;
             }
-            if (TogetherManager.currentUser != null && !currentVoteSession.playerVotes.ContainsKey(TogetherManager.currentUser.steamUser.m_SteamID))
+            if (TogetherManager.currentUser != null && !session.playerVotes.ContainsKey(TogetherManager.currentUser.steamUser.m_SteamID))
             {
-                currentVoteSession.playerVotes[TogetherManager.currentUser.steamUser.m_SteamID] = false;
+                session.playerVotes[TogetherManager.currentUser.steamUser.m_SteamID] = false;
             }
 
-            Debug.Log($"Started vote for: {voteTheme}");
-            OnVoteStarted?.Invoke(currentVoteSession);
-            OnVoteUpdated?.Invoke(currentVoteSession);
+            activeVotes[voteTheme] = session;
+            Debug.Log("[MultiplayerDeck] Started vote for: " + voteTheme);
+
+            if (broadcast)
+            {
+                NetworkHelper.SendVoteStart(voteTheme);
+            }
+
+            OnVoteStarted?.Invoke(session);
+            OnVoteUpdated?.Invoke(session);
+            return session;
         }
 
         public void Vote(VoteTheme voteTheme, bool cancel = false)
         {
-            if (currentVoteSession == null || !currentVoteSession.isActive)
+            VoteSession session = GetVote(voteTheme);
+            if (session == null)
             {
-                Debug.LogWarning("No active vote session!");
+                Debug.LogWarning("[MultiplayerDeck] No active vote session for: " + voteTheme);
+                return;
+            }
+
+            if (TogetherManager.currentUser == null)
+            {
+                Debug.LogWarning("[MultiplayerDeck] Cannot vote before current user is initialized.");
                 return;
             }
 
             ulong playerId = TogetherManager.currentUser.steamUser.m_SteamID;
-            if (currentVoteSession.playerVotes.ContainsKey(playerId))
-            {
-                currentVoteSession.playerVotes[playerId] = !cancel;
-                Debug.Log($"Player {TogetherManager.currentUser.userName} voted: {(cancel ? "No" : "Yes")}");
-            }
-            else
-            {
-                currentVoteSession.playerVotes.Add(playerId, !cancel);
-            }
-
-            // 发送投票到网络
+            ApplyVote(session, playerId, cancel);
             NetworkHelper.SendVote(voteTheme, playerId, cancel);
-
-            OnVoteUpdated?.Invoke(currentVoteSession);
-            CheckVoteCompletion();
         }
 
         public void VoteFromNetwork(VoteTheme voteTheme, ulong playerId, bool cancel)
         {
-            if (currentVoteSession == null || !currentVoteSession.isActive)
+            VoteSession session = GetVote(voteTheme);
+            if (session == null)
             {
-                Debug.LogWarning("No active vote session to receive vote from network!");
+                session = StartVoteInternal(voteTheme, GetCallbackForTheme(voteTheme), false);
+            }
+
+            ApplyVote(session, playerId, cancel);
+        }
+
+        private void ApplyVote(VoteSession session, ulong playerId, bool cancel)
+        {
+            session.playerVotes[playerId] = !cancel;
+            Debug.Log("[MultiplayerDeck] Vote " + session.voteTheme + " player " + playerId + ": " + (cancel ? "No" : "Yes"));
+
+            OnVoteUpdated?.Invoke(session);
+            CheckVoteCompletion(session.voteTheme);
+        }
+
+        private void CheckVoteCompletion(VoteTheme voteTheme)
+        {
+            VoteSession session = GetVote(voteTheme);
+            if (session == null)
+            {
                 return;
             }
 
-            if (currentVoteSession.voteTheme != voteTheme)
+            if (session.IsCompleted)
             {
-                Debug.LogWarning("Not correct vote theme from network!");
+                CompleteVote(voteTheme);
+            }
+        }
+
+        private void CompleteVote(VoteTheme voteTheme)
+        {
+            VoteSession session = GetVote(voteTheme);
+            if (session == null)
+            {
                 return;
             }
 
-            if (currentVoteSession.playerVotes.ContainsKey(playerId))
-            {
-                currentVoteSession.playerVotes[playerId] = !cancel;
-                Debug.Log($"Received vote from network - Player {playerId}: {(cancel ? "No" : "Yes")}");
-            }
-            else
-            {
-                currentVoteSession.playerVotes.Add(playerId, !cancel);
-            }
+            session.isActive = false;
+            activeVotes.Remove(voteTheme);
+            Debug.Log("[MultiplayerDeck] Vote completed. Type: " + voteTheme);
 
-            OnVoteUpdated?.Invoke(currentVoteSession);
-            CheckVoteCompletion();
+            session.onVoteComplete?.Invoke();
+            OnVoteEnded?.Invoke(session);
         }
 
-        private void CheckVoteCompletion()
+        public void AbortVote(VoteTheme voteTheme)
         {
-            if (currentVoteSession == null) return;
-
-            if (currentVoteSession.IsCompleted)
+            VoteSession session = GetVote(voteTheme);
+            if (session == null)
             {
-                CompleteVote();
+                return;
             }
+
+            session.isActive = false;
+            activeVotes.Remove(voteTheme);
+            OnVoteEnded?.Invoke(session);
         }
 
-        private void CompleteVote()
+        public void AbortAllVotes()
         {
-            if (currentVoteSession == null) return;
-
-            currentVoteSession.isActive = false;
-            Debug.Log($"Vote completed. Type: {currentVoteSession.voteTheme}");
-
-            // 执行回调
-            currentVoteSession.onVoteComplete?.Invoke();
-
-            OnVoteEnded?.Invoke(currentVoteSession);
-
-            // 清除当前投票会话
-            currentVoteSession = null;
-        }
-
-        public void AbortCurrentVote()
-        {
-            if (currentVoteSession != null)
+            List<VoteSession> sessions = GetActiveVotes().ToList();
+            activeVotes.Clear();
+            foreach (VoteSession session in sessions)
             {
-                currentVoteSession.isActive = false;
-                OnVoteEnded?.Invoke(currentVoteSession);
+                session.isActive = false;
+                OnVoteEnded?.Invoke(session);
             }
-            currentVoteSession = null;
         }
 
         public void SyncPlayersWithLobby()
         {
-            if (currentVoteSession == null || !currentVoteSession.isActive)
+            foreach (VoteSession session in GetActiveVotes())
             {
-                return;
+                SyncPlayers(session);
+                OnVoteUpdated?.Invoke(session);
+                CheckVoteCompletion(session.voteTheme);
             }
+        }
 
+        private void SyncPlayers(VoteSession session)
+        {
             HashSet<ulong> activePlayers = new HashSet<ulong>();
             foreach (RemotePlayer player in TogetherManager.players)
             {
                 activePlayers.Add(player.steamUser.m_SteamID);
-                if (!currentVoteSession.playerVotes.ContainsKey(player.steamUser.m_SteamID))
+                if (!session.playerVotes.ContainsKey(player.steamUser.m_SteamID))
                 {
-                    currentVoteSession.playerVotes[player.steamUser.m_SteamID] = false;
+                    session.playerVotes[player.steamUser.m_SteamID] = false;
                 }
             }
 
-            List<ulong> removedPlayers = currentVoteSession.playerVotes.Keys.Where(id => !activePlayers.Contains(id)).ToList();
+            List<ulong> removedPlayers = session.playerVotes.Keys.Where(id => !activePlayers.Contains(id)).ToList();
             foreach (ulong playerId in removedPlayers)
             {
-                currentVoteSession.playerVotes.Remove(playerId);
+                session.playerVotes.Remove(playerId);
             }
-
-            OnVoteUpdated?.Invoke(currentVoteSession);
-            CheckVoteCompletion();
         }
 
         public bool HasPlayerVotedYes(RemotePlayer player)
         {
-            if (player == null || currentVoteSession == null || !currentVoteSession.isActive)
+            if (player == null)
+            {
+                return false;
+            }
+
+            return GetActiveVotes().Any(session => HasPlayerVotedYes(player, session.voteTheme));
+        }
+
+        public bool HasPlayerVotedYes(RemotePlayer player, VoteTheme voteTheme)
+        {
+            if (player == null)
+            {
+                return false;
+            }
+
+            VoteSession session = GetVote(voteTheme);
+            if (session == null)
             {
                 return false;
             }
 
             bool voted;
-            return currentVoteSession.playerVotes.TryGetValue(player.steamUser.m_SteamID, out voted) && voted;
+            return session.playerVotes.TryGetValue(player.steamUser.m_SteamID, out voted) && voted;
         }
 
-        public bool HasLocalPlayerVotedYes()
+        public bool HasLocalPlayerVotedYes(VoteTheme voteTheme)
         {
-            return HasPlayerVotedYes(TogetherManager.GetCurrentUser());
+            return HasPlayerVotedYes(TogetherManager.GetCurrentUser(), voteTheme);
         }
 
-        public int GetYesVoteCount()
+        public bool UnlockYesVoteButton(VoteTheme voteTheme)
         {
-            if (currentVoteSession == null || !currentVoteSession.isActive)
+            if (HasLocalPlayerVotedYes(voteTheme))
+            {
+                return false;
+            }
+            if (voteTheme == VoteTheme.FirstStage)
+            {
+                return PlayData.TSavedata.Party.Count > 0;
+            }
+            if (voteTheme == VoteTheme.EnterCrimson)
+            {
+                return PlayData.TSavedata.Crimson_Open;
+            }
+            if (voteTheme == VoteTheme.EnterAzar)
+            {
+                return PlayData.TSavedata.UseNecklaceOn;
+            }
+            return true;
+        }
+
+        public int GetYesVoteCount(VoteTheme voteTheme)
+        {
+            VoteSession session = GetVote(voteTheme);
+            if (session == null)
             {
                 return 0;
             }
 
-            return currentVoteSession.playerVotes.Values.Count(voted => voted);
+            return session.playerVotes.Values.Count(voted => voted);
+        }
+
+        private Action GetCallbackForTheme(VoteTheme voteTheme)
+        {
+            Action callback;
+            if (voteCallbacks.TryGetValue(voteTheme, out callback))
+            {
+                return callback;
+            }
+
+            switch (voteTheme)
+            {
+                case VoteTheme.TurnEnd:
+                    return TurnEnd;
+                case VoteTheme.NextStage:
+                    return ServerGotoNextStage;
+                case VoteTheme.FirstStage:
+                    return ServerGotoNextStage;
+                case VoteTheme.EnterCrimson:
+                    return GotoCrimsonWilderness;
+                case VoteTheme.EnterAzar:
+                    return GotoUltimateAzar;
+                default:
+                    return null;
+            }
+        }
+
+        private void TurnEnd()
+        {
+            if (BattleSystem.instance == null)
+            {
+                return;
+            }
+
+            BattleSystem.instance.TargetSelectCancel();
+            BattleSystem.instance.ActWindow.WasteButton.Quit();
+            BattleSystem.instance.ActWindow.On = false;
+            BattleSystem.instance.ActWindow.TurnEndFlag = true;
+            BattleSystem.instance.StartCoroutine(BattleSystem.instance.EnemyTurn(true));
+        }
+
+        public static void ServerGotoNextStage()
+        {
+            if (MultiplayerDeck_Plugin.IsLobbyOwner)
+            {
+                StageSyncManager.Instance.GotoNextStage();
+            }
+        }
+
+        public static void GotoCrimsonWilderness()
+        {
+            StageSyncManager.Instance.GotoNextStage(crimson: true);
+        }
+
+        public static void GotoUltimateAzar()
+        {
+            StageSyncManager.Instance.GotoNextStage(azar: true);
         }
     }
-    
+
     public class VoteUI
     {
         public GameObject Root { get; set; }

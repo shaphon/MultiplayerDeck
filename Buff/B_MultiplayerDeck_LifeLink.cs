@@ -24,6 +24,13 @@ namespace MultiplayerDeck
             this.PlusPerStat.MaxHP = (TogetherManager.players.Count - 1) * 100 + 25;
         }
 
+        public override void BuffOneAwake()
+        {
+            base.BuffOneAwake();
+            this.PlusPerStat.MaxHP = (TogetherManager.players.Count - 1) * 100 + 25;
+            this.BChar.HP = this.BChar.GetStat.maxhp;
+        }
+
         public void HPChange1(BattleChar Char, bool Healed, int PreHPNum, int NewHPNum)
         {
             if (BattleSyncManager.Instance.enemyHpSyncing)
