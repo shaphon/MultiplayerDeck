@@ -28,9 +28,15 @@ namespace MultiplayerDeck
         private int lastDeckHash;
         private int lastUsedHash;
         private int lastTurnActionNum;
+        private int lastAppliedDeckVersion;
+        private int lastAppliedUsedDeckVersion;
+        private HashSet<int> appliedDrawResultVersions = new HashSet<int>();
+        public int deckStateVersion;
         public bool deckSyncing;
+        public bool drawResultApplying;
         public bool enemyHpSyncing;
         public bool turnActionNumSyncing;
+        public bool turnEnding;
         public BattleStartDeckManager battleStartDeckManager = new BattleStartDeckManager();
 
         public void Tick()
@@ -40,6 +46,7 @@ namespace MultiplayerDeck
                 return;
             }
             SendDeckStateWhenChanged();
+            SendDeckMutationReportWhenChanged();
             SendTurnActionNumWhenChanged();
         }
 
@@ -48,22 +55,182 @@ namespace MultiplayerDeck
             lastDeckHash = 0;
             lastUsedHash = 0;
             lastTurnActionNum = 0;
+            lastAppliedDeckVersion = 0;
+            lastAppliedUsedDeckVersion = 0;
+            appliedDrawResultVersions.Clear();
+            deckStateVersion = 0;
             deckSyncing = false;
+            drawResultApplying = false;
             enemyHpSyncing = false;
             turnActionNumSyncing = false;
             battleStartDeckManager.Initialize();
         }
 
-        public void ApplyDeckState(bool usedDeck, List<Skill> newDeck)
+        public void ApplyDeckState(bool usedDeck, List<Skill> newDeck, int version = 0, RemotePlayer sender = null)
         {
             if (BattleSystem.instance == null || newDeck == null)
             {
                 return;
             }
+            if (version > 0)
+            {
+                if (!IsAuthoritativeDeckStateSender(sender))
+                {
+                    Debug.LogWarning("[DeckSync] Ignored non-host DeckState. version=" + version);
+                    return;
+                }
+                int currentVersion = usedDeck ? lastAppliedUsedDeckVersion : lastAppliedDeckVersion;
+                if (version <= currentVersion)
+                {
+                    Debug.Log("[DeckSync] Ignored stale DeckState. incoming=" + version + ", current=" + currentVersion + ", usedDeck=" + usedDeck);
+                    return;
+                }
+                if (usedDeck)
+                {
+                    lastAppliedUsedDeckVersion = version;
+                }
+                else
+                {
+                    lastAppliedDeckVersion = version;
+                }
+                deckStateVersion = Math.Max(deckStateVersion, version);
+            }
             deckSyncing = true;
             List<Skill> targetDeck = usedDeck ? BattleSystem.instance.AllyTeam.Skills_UsedDeck : BattleSystem.instance.AllyTeam.Skills_Deck;
             targetDeck.Clear();
             targetDeck.AddRange(newDeck);
+            UpdateDeckHashes();
+        }
+
+        public void RequestDraw(int count)
+        {
+            if (count <= 0 || !MultiplayerDeck_Plugin.IsMultiplayer || MultiplayerDeck_Plugin.IsLobbyOwner)
+            {
+                return;
+            }
+
+            NetworkHelper.SendRequestDraw(count);
+        }
+
+        public void ReceiveDrawRequest(RemotePlayer player, int count)
+        {
+            if (!MultiplayerDeck_Plugin.IsLobbyOwner || player == null || count <= 0 || BattleSystem.instance == null)
+            {
+                return;
+            }
+
+            BattleSystem.instance.StartCoroutine(AllocateRemoteDraw(player, count));
+        }
+
+        private IEnumerator AllocateRemoteDraw(RemotePlayer player, int count)
+        {
+            List<SkillNetworkDTO> cards = new List<SkillNetworkDTO>();
+            BattleTeam team = BattleSystem.instance.AllyTeam;
+
+            for (int i = 0; i < count; i++)
+            {
+                yield return BattleSystem.instance.StartCoroutine(team.DrawCheck());
+                if (team.Skills_Deck.Count == 0)
+                {
+                    break;
+                }
+
+                Skill skill = team.Skills_Deck[0];
+                SkillNetworkDTO dto = SkillSerializer.SkillToDTO(skill);
+                if (dto != null)
+                {
+                    cards.Add(dto);
+                }
+                team.Skills_Deck.RemoveAt(0);
+            }
+
+            if (cards.Count == 0)
+            {
+                yield break;
+            }
+
+            deckStateVersion++;
+            lastDeckHash = SkillListHash(team.Skills_Deck);
+            lastUsedHash = SkillListHash(team.Skills_UsedDeck);
+            NetworkHelper.SendDrawResult(player.steamUser.m_SteamID, deckStateVersion, cards);
+            NetworkHelper.SendDeckState(team.Skills_Deck, false);
+            NetworkHelper.SendDeckState(team.Skills_UsedDeck, true);
+        }
+
+        public void ApplyDrawResult(ulong targetPlayerId, int version, List<SkillNetworkDTO> cards)
+        {
+            if (BattleSystem.instance == null || cards == null || cards.Count == 0)
+            {
+                return;
+            }
+            if (version > 0 && appliedDrawResultVersions.Contains(version))
+            {
+                Debug.Log("[DeckSync] Ignored duplicated DrawResult. version=" + version);
+                return;
+            }
+            if (version > 0)
+            {
+                appliedDrawResultVersions.Add(version);
+            }
+            deckStateVersion = Math.Max(deckStateVersion, version);
+
+            bool targetIsCurrentUser = TogetherManager.currentUser != null &&
+                TogetherManager.currentUser.steamUser.m_SteamID == targetPlayerId;
+
+            List<Skill> drawnSkills = new List<Skill>();
+            foreach (SkillNetworkDTO dto in cards)
+            {
+                Skill skill = SkillSerializer.CreateSkillFromDTO(dto);
+                deckSyncing = true;
+                RemoveSkillFromDecks(dto);
+                if (targetIsCurrentUser && skill != null)
+                {
+                    drawnSkills.Add(skill);
+                }
+            }
+
+            if (targetIsCurrentUser)
+            {
+                BattleSystem.instance.StartCoroutine(AddDrawnSkills(drawnSkills));
+            }
+            else
+            {
+                UpdateDeckHashes();
+                deckSyncing = false;
+            }
+        }
+
+        private IEnumerator AddDrawnSkills(List<Skill> skills)
+        {
+            drawResultApplying = true;
+            foreach (Skill skill in skills)
+            {
+                if (skill != null)
+                {
+                    yield return BattleSystem.instance.StartCoroutine(BattleSystem.instance.AllyTeam._Add(skill, NotDraw: false));
+                    BattleSystem.instance.AllyTeam.DeckDrawAni();
+                }
+            }
+            UpdateDeckHashes();
+            deckSyncing = false;
+            drawResultApplying = false;
+        }
+
+        public void ReceiveDeckMutationReport(RemotePlayer player, bool usedDeck, List<Skill> newDeck)
+        {
+            if (!MultiplayerDeck_Plugin.IsLobbyOwner || player == null || BattleSystem.instance == null || newDeck == null)
+            {
+                return;
+            }
+
+            List<Skill> targetDeck = usedDeck ? BattleSystem.instance.AllyTeam.Skills_UsedDeck : BattleSystem.instance.AllyTeam.Skills_Deck;
+            targetDeck.Clear();
+            targetDeck.AddRange(newDeck);
+
+            deckStateVersion++;
+            UpdateDeckHashes();
+            NetworkHelper.SendDeckState(targetDeck, usedDeck);
+            //Debug.Log("[DeckSync] Accepted DeckMutationReport. player=" + player.userName + ", usedDeck=" + usedDeck + ", count=" + newDeck.Count + ", version=" + deckStateVersion);
         }
 
         public void ApplyEnemyHp(string enemyKey, int position, int hp)
@@ -87,7 +254,7 @@ namespace MultiplayerDeck
             {
                 turnActionNumSyncing = true;
                 BattleSystem.instance.AllyTeam.TurnActionNum = value;
-                if (!BattleSystem.instance.EnemyCheck && !BattleSystem.instance.NowEndedTurn)
+                if (!BattleSystem.instance.EnemyCheck && !turnEnding)
                 {
                     BattleSystem.instance.StartCoroutine(BattleSystem.instance.EnemyTurn(false));
                 }
@@ -118,6 +285,10 @@ namespace MultiplayerDeck
             {
                 return;
             }
+            if (!MultiplayerDeck_Plugin.IsLobbyOwner)
+            {
+                return;
+            }
             if (!battleStartDeckManager.deckReceived)
             {
                 return;
@@ -138,13 +309,49 @@ namespace MultiplayerDeck
             }
             if (deckChange)
             {
+                deckStateVersion++;
                 NetworkHelper.SendDeckState(team.Skills_Deck, false);
             }
             if (usedChange)
             {
+                deckStateVersion++;
                 NetworkHelper.SendDeckState(team.Skills_UsedDeck, true);
             }
             
+        }
+
+        private void SendDeckMutationReportWhenChanged()
+        {
+            if (!MultiplayerDeck_Plugin.IsMultiplayer || MultiplayerDeck_Plugin.IsLobbyOwner)
+            {
+                return;
+            }
+            if (!battleStartDeckManager.deckReceived || deckSyncing || drawResultApplying)
+            {
+                if (deckSyncing && !drawResultApplying)
+                {
+                    deckSyncing = false;
+                }
+                return;
+            }
+
+            BattleTeam team = BattleSystem.instance.AllyTeam;
+            int deckHash = SkillListHash(team.Skills_Deck);
+            int usedHash = SkillListHash(team.Skills_UsedDeck);
+            bool deckChange = deckHash != lastDeckHash;
+            bool usedChange = usedHash != lastUsedHash;
+
+            lastDeckHash = deckHash;
+            lastUsedHash = usedHash;
+
+            if (deckChange)
+            {
+                NetworkHelper.SendDeckMutationReport(team.Skills_Deck, false);
+            }
+            if (usedChange)
+            {
+                NetworkHelper.SendDeckMutationReport(team.Skills_UsedDeck, true);
+            }
         }
 
         private void SendTurnActionNumWhenChanged()
@@ -154,7 +361,7 @@ namespace MultiplayerDeck
                 return;
             }
 
-            if (BattleSystem.instance.NowEndedTurn)
+            if (turnEnding)
             {
                 return;
             }
@@ -182,11 +389,86 @@ namespace MultiplayerDeck
                 int hash = 17;
                 foreach (Skill skill in skills)
                 {
+                    hash = hash * 31 + GetSkillKey(skill).GetHashCode();
                     hash = hash * 31 + (skill.CharinfoSkilldata?.Seed ?? 0);
                 }
                 return hash;
             }
         }        
+
+        private void UpdateDeckHashes()
+        {
+            if (BattleSystem.instance == null || BattleSystem.instance.AllyTeam == null)
+            {
+                return;
+            }
+
+            lastDeckHash = SkillListHash(BattleSystem.instance.AllyTeam.Skills_Deck);
+            lastUsedHash = SkillListHash(BattleSystem.instance.AllyTeam.Skills_UsedDeck);
+        }
+
+        public static string GetSkillKey(Skill skill)
+        {
+            if (skill == null || skill.MySkill == null)
+            {
+                return string.Empty;
+            }
+
+            return string.IsNullOrEmpty(skill.MySkill.KeyID) ? skill.MySkill.Key : skill.MySkill.KeyID;
+        }
+
+        private static bool IsAuthoritativeDeckStateSender(RemotePlayer sender)
+        {
+            if (TogetherManager.currentLobby == null)
+            {
+                return false;
+            }
+            if (sender == null)
+            {
+                return MultiplayerDeck_Plugin.IsLobbyOwner;
+            }
+            return TogetherManager.currentLobby.ownerID.m_SteamID == sender.steamUser.m_SteamID;
+        }
+
+        private static void RemoveSkillFromDecks(SkillNetworkDTO dto)
+        {
+            if (dto == null || BattleSystem.instance == null)
+            {
+                return;
+            }
+
+            RemoveSkillFromList(BattleSystem.instance.AllyTeam.Skills_Deck, dto);
+            RemoveSkillFromList(BattleSystem.instance.AllyTeam.Skills_UsedDeck, dto);
+        }
+
+        private static bool RemoveSkillFromList(List<Skill> skills, SkillNetworkDTO dto)
+        {
+            if (skills == null)
+            {
+                return false;
+            }
+
+            int index = skills.FindIndex(skill =>
+                skill != null &&
+                skill.CharinfoSkilldata != null &&
+                dto.Seed != 0 &&
+                skill.CharinfoSkilldata.Seed == dto.Seed);
+
+            if (index < 0)
+            {
+                index = skills.FindIndex(skill =>
+                    GetSkillKey(skill) == dto.SkillKey &&
+                    (skill.Master?.Info?.KeyData ?? "") == (dto.MasterKey ?? ""));
+            }
+
+            if (index < 0)
+            {
+                return false;
+            }
+
+            skills.RemoveAt(index);
+            return true;
+        }
 
         public static ulong RandomOtherPlayerId()
         {
@@ -255,8 +537,6 @@ namespace MultiplayerDeck
 
         public void SendRequestForBattleStartDeck()
         {
-            Debug.Log("[DeckSync] SendRequestForBattleStartDeck()");
-
             if (TogetherManager.currentLobby == null || !TogetherManager.currentLobby.IsOwner())
             {
                 return;
@@ -283,14 +563,12 @@ namespace MultiplayerDeck
             BattleSystem.instance.StartCoroutine(SendRequest());
             IEnumerator SendRequest()
             {
-                Debug.Log("[DeckSync] BattleSystem.instance.StartCoroutine(SendRequest());");
-
                 while (deckContributions.Count < TogetherManager.players.Count - 1)
                 {
                     Debug.Log("[DeckSync] Host sending request for battle start deck");
 
                     NetworkHelper.SendData(NetDataType.RequestForBattleStartDeck);
-                    yield return new WaitForSecondsRealtime(0.2f);
+                    yield return new WaitForSecondsRealtime(1f);
                 }
             }
         }

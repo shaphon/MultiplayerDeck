@@ -143,7 +143,7 @@ namespace MultiplayerDeck
             }
 
             activeVotes[voteTheme] = session;
-            Debug.Log("[MultiplayerDeck] Started vote for: " + voteTheme);
+            Debug.Log("[VoteManager] Started vote for: " + voteTheme);
 
             if (broadcast)
             {
@@ -160,13 +160,13 @@ namespace MultiplayerDeck
             VoteSession session = GetVote(voteTheme);
             if (session == null)
             {
-                Debug.LogWarning("[MultiplayerDeck] No active vote session for: " + voteTheme);
+                Debug.LogWarning("[VoteManager] No active vote session for: " + voteTheme);
                 return;
             }
 
             if (TogetherManager.currentUser == null)
             {
-                Debug.LogWarning("[MultiplayerDeck] Cannot vote before current user is initialized.");
+                Debug.LogWarning("[VoteManager] Cannot vote before current user is initialized.");
                 return;
             }
 
@@ -189,7 +189,7 @@ namespace MultiplayerDeck
         private void ApplyVote(VoteSession session, ulong playerId, bool cancel)
         {
             session.playerVotes[playerId] = !cancel;
-            Debug.Log("[MultiplayerDeck] Vote " + session.voteTheme + " player " + playerId + ": " + (cancel ? "No" : "Yes"));
+            Debug.Log("[VoteManager] Vote " + session.voteTheme + " player " + playerId + ": " + (cancel ? "No" : "Yes"));
 
             OnVoteUpdated?.Invoke(session);
             CheckVoteCompletion(session.voteTheme);
@@ -219,7 +219,7 @@ namespace MultiplayerDeck
 
             session.isActive = false;
             activeVotes.Remove(voteTheme);
-            Debug.Log("[MultiplayerDeck] Vote completed. Type: " + voteTheme);
+            Debug.Log("[VoteManager] Vote completed. Type: " + voteTheme);
 
             session.onVoteComplete?.Invoke();
             OnVoteEnded?.Invoke(session);
@@ -373,6 +373,8 @@ namespace MultiplayerDeck
             {
                 return;
             }
+
+            BattleSyncManager.Instance.turnEnding = true;
 
             BattleSystem.instance.TargetSelectCancel();
             BattleSystem.instance.ActWindow.WasteButton.Quit();

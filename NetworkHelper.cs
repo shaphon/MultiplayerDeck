@@ -19,6 +19,9 @@ namespace MultiplayerDeck
 		BattleStartDeck,
 		RequestForBattleStartDeck,
 		DeckState,
+		DeckMutationReport,
+		RequestDraw,
+		DrawResult,
 		EnemyHP,
 		TurnActionNum,
 		ExchangeSkill,
@@ -102,7 +105,7 @@ namespace MultiplayerDeck
 							string rewardKey = binaryReader.ReadString();
 							string preset = binaryReader.ReadString();
 							bool noGameover = binaryReader.ReadBoolean();
-							Debug.Log(dataType.ToString() + " " + queueData);
+							Debug.Log("[MultiplayerDeck] " + dataType.ToString() + " " + queueData);
 
 							StageSyncManager.Instance.StartBattleFromNetwork(queueData, normalBattle, cursed, rewardKey, preset, noGameover);
 							break;
@@ -138,9 +141,31 @@ namespace MultiplayerDeck
 								Debug.Log("[DeckSync] Ignored DeckState before battle start deck sync completed.");
 								break;
 							}
+							int version = binaryReader.ReadInt32();
 							bool usedDeck = binaryReader.ReadBoolean();
 							List<Skill> skills = SkillSerializer.SkillListDeserialize(binaryReader);
-							BattleSyncManager.Instance.ApplyDeckState(usedDeck, skills);
+							BattleSyncManager.Instance.ApplyDeckState(usedDeck, skills, version, playerInfo);
+							break;
+						}
+						case NetDataType.DeckMutationReport:
+						{
+							bool usedDeck = binaryReader.ReadBoolean();
+							List<Skill> skills = SkillSerializer.SkillListDeserialize(binaryReader);
+							BattleSyncManager.Instance.ReceiveDeckMutationReport(playerInfo, usedDeck, skills);
+							break;
+						}
+						case NetDataType.RequestDraw:
+						{
+							int count = binaryReader.ReadInt32();
+							BattleSyncManager.Instance.ReceiveDrawRequest(playerInfo, count);
+							break;
+						}
+						case NetDataType.DrawResult:
+						{
+							ulong targetPlayerId = binaryReader.ReadUInt64();
+							int version = binaryReader.ReadInt32();
+							List<SkillNetworkDTO> cards = SkillSerializer.SkillDTOListDeserialize(binaryReader);
+							BattleSyncManager.Instance.ApplyDrawResult(targetPlayerId, version, cards);
 							break;
 						}
 						case NetDataType.EnemyHP:
@@ -216,7 +241,6 @@ namespace MultiplayerDeck
 						case NetDataType.BossClear:
 						{
 							StageSyncManager.Instance.bossClear = true;
-							StageSyncManager.Instance.BossClear();
 							break;
 						}
 						case NetDataType.LobbyClosed:
@@ -336,10 +360,52 @@ namespace MultiplayerDeck
             using (BinaryWriter binaryWriter = new BinaryWriter(memoryStream))
             {
                 binaryWriter.Write((int)NetDataType.DeckState);
+				binaryWriter.Write(BattleSyncManager.Instance.deckStateVersion);
                 binaryWriter.Write(usedDeck);
 				SkillSerializer.SkillListSerialize(binaryWriter, skills);
             }
             Service()?.SendPacket(memoryStream.ToArray());
+		}
+
+		public static void SendDeckMutationReport(List<Skill> skills, bool usedDeck = false)
+		{
+			if (BattleSystem.instance == null)
+			{
+				return;
+			}
+
+			MemoryStream memoryStream = new MemoryStream();
+			using (BinaryWriter binaryWriter = new BinaryWriter(memoryStream))
+			{
+				binaryWriter.Write((int)NetDataType.DeckMutationReport);
+				binaryWriter.Write(usedDeck);
+				SkillSerializer.SkillListSerialize(binaryWriter, skills);
+			}
+			Service()?.SendPacket(memoryStream.ToArray());
+		}
+
+		public static void SendRequestDraw(int count)
+		{
+			MemoryStream memoryStream = new MemoryStream();
+			using (BinaryWriter binaryWriter = new BinaryWriter(memoryStream))
+			{
+				binaryWriter.Write((int)NetDataType.RequestDraw);
+				binaryWriter.Write(count);
+			}
+			Service()?.SendPacket(memoryStream.ToArray());
+		}
+
+		public static void SendDrawResult(ulong targetPlayerId, int version, List<SkillNetworkDTO> cards)
+		{
+			MemoryStream memoryStream = new MemoryStream();
+			using (BinaryWriter binaryWriter = new BinaryWriter(memoryStream))
+			{
+				binaryWriter.Write((int)NetDataType.DrawResult);
+				binaryWriter.Write(targetPlayerId);
+				binaryWriter.Write(version);
+				SkillSerializer.SkillDTOListSerialize(binaryWriter, cards);
+			}
+			Service()?.SendPacket(memoryStream.ToArray());
 		}
 
 		public static void SendTurnActionNum(int value)

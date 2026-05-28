@@ -139,7 +139,6 @@ namespace MultiplayerDeck
                 }
 
                 skill = Skill.TempSkill(dto.SkillKey, master, master.MyTeam);
-                
             }
 
             return skill;

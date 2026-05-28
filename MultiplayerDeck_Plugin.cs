@@ -27,7 +27,7 @@ namespace MultiplayerDeck
             this.harmony.UnpatchSelf();
         }
 
-        private static readonly int timeoutMaxFrame = 600;
+        private static readonly int timeoutMaxFrame = 1800;
         public static bool IsMultiplayer => TogetherManager.currentLobby != null;
         public static bool IsLobbyOwner
         {
@@ -150,6 +150,22 @@ namespace MultiplayerDeck
                         }
                     }
                 }
+            }
+        }
+
+        [HarmonyPatch(typeof(BattleTeam), "Draw", new Type[] { typeof(int) })]
+        public static class DrawRequestPatch
+        {
+            [HarmonyPrefix]
+            public static bool Prefix(BattleTeam __instance, int Num)
+            {
+                if (!IsMultiplayer || IsLobbyOwner || BattleSyncManager.Instance.drawResultApplying)
+                {
+                    return true;
+                }
+
+                BattleSyncManager.Instance.RequestDraw(Num);
+                return false;
             }
         }
 
@@ -298,7 +314,7 @@ namespace MultiplayerDeck
                     __result = StageMapSyncHelper.LoadRemoteMap(packet);
                     return false;
                 }
-                Debug.LogWarning("[MultiplayerDeck] StageMapSyncHelper.mapPacket is null. Map Not Synchronized");
+                Debug.LogError("[MultiplayerDeck] StageMapSyncHelper.mapPacket is null. Map Not Synchronized");
                 return true;
             }
 
@@ -351,8 +367,6 @@ namespace MultiplayerDeck
                     return;
                 }
 
-                Debug.Log("[BossClear] MiniBossClearSetterPatch Enter");
-
                 if (value && !StageSyncManager.Instance.bossClear)
                 {
                     StageSyncManager.Instance.bossClear = true;
@@ -368,8 +382,6 @@ namespace MultiplayerDeck
                 {
                     return;
                 }
-
-                Debug.Log("[BossClear] BossClearSetterPatch Enter");
 
                 if (value && !StageSyncManager.Instance.bossClear)
                 {

@@ -3,7 +3,7 @@
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
     <OutputType>Library</OutputType>
-    <AssemblyName>MultiplayerDeck2026527161359</AssemblyName>
+    <AssemblyName>MultiplayerDeck202652803546</AssemblyName>
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <OutputPath>bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
@@ -385,11 +385,12 @@
       <Private>False</Private>
     </Reference>
     <!-- Extra Reference Start-->
-<!-- Extra Reference End-->
+    <!-- Extra Reference End-->
   </ItemGroup>
-                      <!-- Compile ItemGroup Start-->
+  <!-- Compile ItemGroup Start-->
   <ItemGroup>
-    <Compile Include="BattleSyncManager.cs" />
+    <Compile Include="Skill\SkillExtended_Network.cs" />
+    <Compile Include="SyncManager\BattleSyncManager.cs" />
     <Compile Include="MultiplayerDeckMainUI.cs" />
     <Compile Include="MultiplayerDeck_ModDefinition.cs" />
     <Compile Include="MultiplayerDeck_ModItemKeys.cs" />
@@ -397,9 +398,9 @@
     <Compile Include="NetworkHelper.cs" />
     <Compile Include="Packet.cs" />
     <Compile Include="RemotePlayer.cs" />
-    <Compile Include="SkillSerializer.cs" />
-    <Compile Include="StageMapSyncHelper.cs" />
-    <Compile Include="StageSyncManager.cs" />
+    <Compile Include="SyncManager\SkillSerializer.cs" />
+    <Compile Include="SyncManager\StageMapSyncHelper.cs" />
+    <Compile Include="SyncManager\StageSyncManager.cs" />
     <Compile Include="SteamCallbacks.cs" />
     <Compile Include="SteamIntegration.cs" />
     <Compile Include="SteamLobby.cs" />

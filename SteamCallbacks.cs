@@ -66,11 +66,11 @@ namespace MultiplayerDeck
                 TogetherManager.currentLobby = new SteamLobby(NetworkHelper.steam, new CSteamID(lobby));
                 if (TogetherManager.currentLobby == null)
                 {
-                    Debug.Log("MakeCurrentLobby:Fail");
+                    Debug.Log("MakeCurrentLobby: Fail");
                 }
                 else
                 {
-                    Debug.Log("MakeCurrentLobby:Success");
+                    Debug.Log("MakeCurrentLobby: Success");
                 }
                 TogetherManager.players = TogetherManager.currentLobby.GetLobbyMembers();
                 NetworkHelper.AddPlayer(TogetherManager.currentUser);
@@ -157,7 +157,7 @@ namespace MultiplayerDeck
 
         public static void onLobbyMatchList(int lobbiesMatching)
         {
-            Debug.Log((object)("Lobby Match List: " + lobbiesMatching));
+            Debug.Log("Lobby Match List: " + lobbiesMatching);
             for (int i = 0; i < lobbiesMatching; i++)
             {
                 NetworkHelper.lobbies.Add(new SteamLobby(NetworkHelper.steam, SteamMatchmaking.GetLobbyByIndex(i)));

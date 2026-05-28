@@ -21,13 +21,13 @@ namespace MultiplayerDeck
         public override void Init()
         {
             base.Init();
-            this.PlusPerStat.MaxHP = (TogetherManager.players.Count - 1) * 100 + 25;
+            this.PlusPerStat.MaxHP = (TogetherManager.players.Count - 1) * 100;
         }
 
         public override void BuffOneAwake()
         {
             base.BuffOneAwake();
-            this.PlusPerStat.MaxHP = (TogetherManager.players.Count - 1) * 100 + 25;
+            this.PlusPerStat.MaxHP = (TogetherManager.players.Count - 1) * 100;
             this.BChar.HP = this.BChar.GetStat.maxhp;
         }
 

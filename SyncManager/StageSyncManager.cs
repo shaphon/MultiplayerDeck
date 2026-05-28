@@ -32,7 +32,6 @@ namespace MultiplayerDeck
         public bool bossClear;
         public bool forceNextStage;
         private HashSet<ulong> playersNextStageComplete = new HashSet<ulong>();
-        private string lastBattleKey;
 
         public void Initialize()
         {
@@ -47,24 +46,6 @@ namespace MultiplayerDeck
             {
                 return;
             }
-            //BroadcastLocalBattleStart();
-        }
-
-        private void BroadcastLocalBattleStart()
-        {
-            if (!MultiplayerDeck_Plugin.IsMultiplayer || BattleSystem.instance == null || BattleSystem.instance.MainQueueData == null)
-            {
-                return;
-            }
-
-            string key = BattleSystem.instance.MainQueueData.Key;
-            if (key == lastBattleKey)
-            {
-                return;
-            }
-
-            lastBattleKey = key;
-            NetworkHelper.SendBattleStart(key, BattleSystem.instance.BossBattle, BattleSystem.instance.CurseBattle, "", "", false);
         }
 
         public void StartBattleFromNetwork(string QueueData, bool NormalBattle, bool Cursed, string RewardKey, string Preset, bool NoGameover)
@@ -148,6 +129,7 @@ namespace MultiplayerDeck
                 || Pos.y >= StageSystem.instance.Map.MapObject.GetLength(1)
                 || StageSystem.instance.Map.EventTileList == null)
             {
+                Debug.LogError("[StageSyncManager] Monster Tile Delete Failed.");
                 return;
             }
             StageSystem.instance.Map.MapObject[(int)Pos.x, (int)Pos.y].Info.Type = new Road();
@@ -166,21 +148,16 @@ namespace MultiplayerDeck
             var m = UnityEngine.Object.FindObjectOfType<MiniBossObject>();
             if (m != null)
             {
-                Debug.Log("[BossClear] MiniBossClear Complete");
                 m.BossClear = true;
-                m.BossFogObject.SetActive(false);
                 return;
             }
             var s = UnityEngine.Object.FindObjectOfType<Stage1Events>();
             if (s != null)
             {
-                Debug.Log("[BossClear] BossClear Complete");
                 s.BossClear = true;
-                s.BossFogObject.SetActive(false);
                 return;
             }
-
-            Debug.Log("[BossClear] Boss Object Not Found");
+            Debug.LogError("[StageSyncManager] Boss Object Not Found.");
         }
     }
 }

@@ -58,7 +58,7 @@ namespace MultiplayerDeck
 			{
 				byte[] array = new byte[num];
 				CSteamID steamID = default(CSteamID);
-				Debug.Log("We have a packet of size " + num);
+				//Debug.Log("We have a packet of size " + num);
 				try
 				{
 					uint num2 = default(uint);

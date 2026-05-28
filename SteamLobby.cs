@@ -100,7 +100,7 @@ namespace MultiplayerDeck
 			try
 			{
 				num = SteamMatchmaking.GetNumLobbyMembers(steamID);
-				Debug.Log("get Members in  lobby: " + num);
+				Debug.Log("get Members in lobby: " + num);
 			}
 			catch
 			{

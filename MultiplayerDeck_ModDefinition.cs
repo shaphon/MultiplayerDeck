@@ -30,7 +30,7 @@ namespace MultiplayerDeck
             }
 
             List<object> list = new List<object>();
-            if (type == typeof(IP_EnemyAwake) || type == typeof(IP_PlayerTurn) || type == typeof(IP_ParticleOut_After_Global))
+            if (type == typeof(IP_EnemyAwake) || type == typeof(IP_PlayerTurn) || type == typeof(IP_ParticleOut_After_Global) || type == typeof(IP_BattleStart_Ones))
             {
                 list.Add(BattleSync);
             }
@@ -38,7 +38,7 @@ namespace MultiplayerDeck
         }
     }
 
-    public class BattleSyncPassive : IP_EnemyAwake, IP_PlayerTurn, IP_ParticleOut_After_Global
+    public class BattleSyncPassive : IP_EnemyAwake, IP_PlayerTurn, IP_ParticleOut_After_Global, IP_BattleStart_Ones
     {
         public void EnemyAwake(BattleChar Enemy)
         {
@@ -47,13 +47,25 @@ namespace MultiplayerDeck
 
         public void Turn()
         {
+            BattleSyncManager.Instance.turnEnding = false;
             VoteManager.Instance.StartVote(VoteManager.VoteTheme.TurnEnd);
         }
 
         public IEnumerator ParticleOut_After_Global(Skill SkillD, List<BattleChar> Targets)
         {
-            NetworkHelper.SendSkillPlayed(SkillD.MySkill.Name);
+            if (SkillD.Master.Info.Ally)
+            {
+                NetworkHelper.SendSkillPlayed(SkillD.MySkill.Name);
+            }
             yield break;
+        }
+
+        public void BattleStart(BattleSystem Ins)
+        {
+            if (Ins.BossBattle)
+            {
+                FieldSystem.instance.BattleAfterDelegate = (FieldSystem.BattleAfterDel)Delegate.Combine(FieldSystem.instance.BattleAfterDelegate, new FieldSystem.BattleAfterDel(StageSyncManager.Instance.BossClear));
+            }
         }
     }
 }
