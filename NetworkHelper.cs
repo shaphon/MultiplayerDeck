@@ -32,7 +32,8 @@ namespace MultiplayerDeck
 		NextStageComplete,
 		MonsterClear,
 		BossClear,
-		LobbyClosed
+		LobbyClosed,
+		NetWorkSkillEffect
 	}
 
 	public class NetworkHelper
@@ -214,7 +215,7 @@ namespace MultiplayerDeck
 						{
 							if (!MultiplayerDeck_Plugin.IsLobbyOwner)
 							{
-								StageMapSyncHelper.mapPacket = StageMapSyncHelper.DeserializeMapPacket(data);
+								StageMapSerializer.mapPacket = StageMapSerializer.DeserializeMapPacket(data);
 								StageSyncManager.Instance.GotoNextStage();
 							}
 							break;
@@ -265,6 +266,12 @@ namespace MultiplayerDeck
 							}
 							break;
 						}
+						case NetDataType.NetWorkSkillEffect:
+						{
+							SkillExtended_Network.ApplySkillEffect(binaryReader);
+							break;
+						}
+
 						default:
 						Debug.Log(dataType);
 						break;

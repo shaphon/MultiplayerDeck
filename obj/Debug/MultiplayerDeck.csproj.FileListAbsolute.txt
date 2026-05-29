@@ -5,7 +5,7 @@ D:\Steam\steamapps\common\Chrono Ark\Mod\Mod Projects\MultiplayerDeck\obj\Debug\
 D:\Steam\steamapps\common\Chrono Ark\Mod\Mod Projects\MultiplayerDeck\bin\Debug\0Harmony.dll
 D:\Steam\steamapps\common\Chrono Ark\Mod\Mod Projects\MultiplayerDeck\bin\Debug\MonoMod.Utils.dll
 D:\Steam\steamapps\common\Chrono Ark\Mod\Mod Projects\MultiplayerDeck\bin\Debug\MonoMod.RuntimeDetour.dll
-D:\Steam\steamapps\common\Chrono Ark\Mod\Mod Projects\MultiplayerDeck\bin\Debug\MultiplayerDeck202652803546.dll
-D:\Steam\steamapps\common\Chrono Ark\Mod\Mod Projects\MultiplayerDeck\bin\Debug\MultiplayerDeck202652803546.pdb
-D:\Steam\steamapps\common\Chrono Ark\Mod\Mod Projects\MultiplayerDeck\obj\Debug\MultiplayerDeck202652803546.dll
-D:\Steam\steamapps\common\Chrono Ark\Mod\Mod Projects\MultiplayerDeck\obj\Debug\MultiplayerDeck202652803546.pdb
+D:\Steam\steamapps\common\Chrono Ark\Mod\Mod Projects\MultiplayerDeck\bin\Debug\MultiplayerDeck2026529162639.dll
+D:\Steam\steamapps\common\Chrono Ark\Mod\Mod Projects\MultiplayerDeck\bin\Debug\MultiplayerDeck2026529162639.pdb
+D:\Steam\steamapps\common\Chrono Ark\Mod\Mod Projects\MultiplayerDeck\obj\Debug\MultiplayerDeck2026529162639.dll
+D:\Steam\steamapps\common\Chrono Ark\Mod\Mod Projects\MultiplayerDeck\obj\Debug\MultiplayerDeck2026529162639.pdb

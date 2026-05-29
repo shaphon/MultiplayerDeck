@@ -3,7 +3,7 @@
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
     <OutputType>Library</OutputType>
-    <AssemblyName>MultiplayerDeck202652803546</AssemblyName>
+    <AssemblyName>MultiplayerDeck2026529162639</AssemblyName>
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <OutputPath>bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
@@ -385,12 +385,10 @@
       <Private>False</Private>
     </Reference>
     <!-- Extra Reference Start-->
-    <!-- Extra Reference End-->
+<!-- Extra Reference End-->
   </ItemGroup>
-  <!-- Compile ItemGroup Start-->
+    <!-- Compile ItemGroup Start-->
   <ItemGroup>
-    <Compile Include="Skill\SkillExtended_Network.cs" />
-    <Compile Include="SyncManager\BattleSyncManager.cs" />
     <Compile Include="MultiplayerDeckMainUI.cs" />
     <Compile Include="MultiplayerDeck_ModDefinition.cs" />
     <Compile Include="MultiplayerDeck_ModItemKeys.cs" />
@@ -398,9 +396,6 @@
     <Compile Include="NetworkHelper.cs" />
     <Compile Include="Packet.cs" />
     <Compile Include="RemotePlayer.cs" />
-    <Compile Include="SyncManager\SkillSerializer.cs" />
-    <Compile Include="SyncManager\StageMapSyncHelper.cs" />
-    <Compile Include="SyncManager\StageSyncManager.cs" />
     <Compile Include="SteamCallbacks.cs" />
     <Compile Include="SteamIntegration.cs" />
     <Compile Include="SteamLobby.cs" />
@@ -408,6 +403,11 @@
     <Compile Include="VoteManager.cs" />
     <Compile Include="Buff\B_MultiplayerDeck_LifeLink.cs" />
     <Compile Include="obj\Debug\.NETFramework,Version=v4.7.2.AssemblyAttributes.cs" />
+    <Compile Include="Skill\SkillExtended_Network.cs" />
+    <Compile Include="SyncManager\BattleSyncManager.cs" />
+    <Compile Include="SyncManager\SkillSerializer.cs" />
+    <Compile Include="SyncManager\StageMapSerializer.cs" />
+    <Compile Include="SyncManager\StageSyncManager.cs" />
   </ItemGroup>
   <!-- Compile ItemGroup End-->
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

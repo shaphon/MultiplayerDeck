@@ -45,8 +45,11 @@ namespace MultiplayerDeck
             {
                 return;
             }
-            SendDeckStateWhenChanged();
-            SendDeckMutationReportWhenChanged();
+            if (!battleStartDeckManager.localDeck)
+            {
+                SendDeckStateWhenChanged();
+                SendDeckMutationReportWhenChanged();
+            }
             SendTurnActionNumWhenChanged();
         }
 
@@ -526,6 +529,7 @@ namespace MultiplayerDeck
         private HashSet<ulong> deckContributions = new HashSet<ulong>();
         private bool deckSent;
         public bool deckReceived;
+        public bool localDeck;
         
         public void Initialize()
         {
@@ -533,6 +537,7 @@ namespace MultiplayerDeck
             deckContributions.Clear();
             deckSent = false;
             deckReceived = false;
+            localDeck = false;
         }
 
         public void SendRequestForBattleStartDeck()

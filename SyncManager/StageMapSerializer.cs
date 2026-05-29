@@ -9,7 +9,7 @@ using System.Xml.Serialization;
 
 namespace MultiplayerDeck
 {
-    public static class StageMapSyncHelper
+    public static class StageMapSerializer
     {
         public static NetStageMapPacket mapPacket;
 

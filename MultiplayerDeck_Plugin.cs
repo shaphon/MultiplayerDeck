@@ -7,6 +7,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices.ComTypes;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
@@ -72,6 +73,7 @@ namespace MultiplayerDeck
                         if (waitFrame >= timeoutMaxFrame)
                         {
                             Debug.LogError("[DeckSync] Timed out waiting for battle start deck. Continuing with local deck.");
+                            BattleSyncManager.Instance.battleStartDeckManager.localDeck = true;
                             BattleSyncManager.Instance.battleStartDeckManager.deckReceived = true;
                             break;
                         }
@@ -294,6 +296,28 @@ namespace MultiplayerDeck
                 }
                 VoteManager.Instance.StartVote(VoteManager.VoteTheme.EnterAzar);
             }
+
+            [HarmonyPatch(typeof(FieldSystem), "LoadOneSaveMap")]
+            [HarmonyPostfix]
+            public static void AfterLoadSave()
+            {
+                if (!IsMultiplayer)
+                {
+                    return;
+                }
+                if (PlayData.TSavedata.BossClear)
+                {
+                    VoteManager.Instance.StartVote(VoteManager.VoteTheme.NextStage);
+                }
+                if (PlayData.TSavedata.Crimson_Open)
+                {
+                    VoteManager.Instance.StartVote(VoteManager.VoteTheme.EnterCrimson);
+                }
+                if (PlayData.TSavedata.UseNecklaceOn)
+                {
+                    VoteManager.Instance.StartVote(VoteManager.VoteTheme.EnterAzar);
+                }
+            }
         }
 
         [HarmonyPatch]
@@ -307,11 +331,16 @@ namespace MultiplayerDeck
                 {
                     return true;
                 }
-                if (StageMapSyncHelper.mapPacket != null)
+                if (PlayData.TSavedata != null && PlayData.TSavedata.IsLoaded)
                 {
-                    var packet = StageMapSyncHelper.mapPacket;
-                    StageMapSyncHelper.mapPacket = null;
-                    __result = StageMapSyncHelper.LoadRemoteMap(packet);
+                    return true;
+                }
+
+                if (StageMapSerializer.mapPacket != null)
+                {
+                    var packet = StageMapSerializer.mapPacket;
+                    StageMapSerializer.mapPacket = null;
+                    __result = StageMapSerializer.LoadRemoteMap(packet);
                     return false;
                 }
                 Debug.LogError("[MultiplayerDeck] StageMapSyncHelper.mapPacket is null. Map Not Synchronized");
@@ -326,12 +355,17 @@ namespace MultiplayerDeck
                 {
                     return;
                 }
+                if (PlayData.TSavedata != null && PlayData.TSavedata.IsLoaded)
+                {
+                    return;
+                }
+
                 if (IsLobbyOwner)
                 {
-                    StageMapSyncHelper.NetStageMapPacket packet = StageMapSyncHelper.CreateMapPacket();
-                    byte[] data = StageMapSyncHelper.SerializeMapPacket(packet);
+                    StageMapSerializer.NetStageMapPacket packet = StageMapSerializer.CreateMapPacket();
+                    byte[] data = StageMapSerializer.SerializeMapPacket(packet);
                     Debug.Log("[MultiplayerDeck] Map Packet Size: " + data.Count());
-                    NetworkHelper.Service()?.SendPacket(StageMapSyncHelper.SerializeMapPacket(packet));
+                    NetworkHelper.Service()?.SendPacket(StageMapSerializer.SerializeMapPacket(packet));
                 }
                 else
                 {

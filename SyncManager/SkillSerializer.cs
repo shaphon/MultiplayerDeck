@@ -106,12 +106,24 @@ namespace MultiplayerDeck
             {
                 return null;
             }
-            return new SkillNetworkDTO
+            if (skill.Master.IsLucy)
             {
-                SkillKey = string.IsNullOrEmpty(skill.MySkill.KeyID) ? skill.MySkill.Key : skill.MySkill.KeyID,
-                MasterKey = skill.Master?.Info?.KeyData ?? "",
-                Seed = skill.CharinfoSkilldata?.Seed ?? 0
-            };
+                return new SkillNetworkDTO
+                {
+                    SkillKey = string.IsNullOrEmpty(skill.MySkill.KeyID) ? skill.MySkill.Key : skill.MySkill.KeyID,
+                    MasterKey = "Lucy",
+                    Seed = skill.CharinfoSkilldata?.Seed ?? 0
+                };
+            }
+            else
+            {
+                return new SkillNetworkDTO
+                {
+                    SkillKey = string.IsNullOrEmpty(skill.MySkill.KeyID) ? skill.MySkill.Key : skill.MySkill.KeyID,
+                    MasterKey = skill.Master?.Info?.KeyData ?? "",
+                    Seed = skill.CharinfoSkilldata?.Seed ?? 0
+                };
+            }
         }
 
         // 从 DTO 重建（需要在游戏上下文环境中）
@@ -183,6 +195,11 @@ namespace MultiplayerDeck
             if (battleChar != null)
             {
                 return battleChar;
+            }
+
+            if (originalMaster == "Lucy")
+            {
+                return BattleSystem.instance.AllyTeam.LucyAlly;
             }
 
             List<BattleChar> aliveChars = BattleSystem.instance.AllyTeam.AliveChars;
