@@ -6,11 +6,11 @@ using UnityEngine;
 
 namespace MultiplayerDeck
 {
-	public class SteamLobby
+	public class SteamLobby : ILobby
 	{
-		public CSteamID steamID;
+		public CSteamID steamID { get; set; }
 
-		public CSteamID ownerID;
+		public CSteamID ownerID { get; set; }
 
 		public SteamIntegration service;
 
@@ -18,11 +18,11 @@ namespace MultiplayerDeck
 
 		public List<string> memberNames = new List<string>();
 
-		public string name = "";
+		public string name { get; set; } = "";
 
-		public string owner = "MegaCrit";
+		public string owner { get; set; } = "";
 
-		public int capacity = 6;
+		public int capacity { get; set; } = 6;
 
 		public int members = 0;
 

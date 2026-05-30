@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace MultiplayerDeck
 {
-	public class SteamIntegration
+	public class SteamIntegration : ILobbyService
 	{
 		private static readonly int maxPlayersCount = 4;
 

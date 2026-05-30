@@ -30,13 +30,13 @@ namespace MultiplayerDeck
         }
 
         private static readonly int timeoutMaxFrame = 1800;
-        public static bool IsMultiplayer => TogetherManager.currentLobby != null;
+        public static bool IsMultiplayer => TogetherManager.ActiveLobby != null;
         public static bool IsLobbyOwner
         {
             get
             {
                 return IsMultiplayer
-                    && TogetherManager.currentLobby.IsOwner();
+                    && TogetherManager.ActiveLobby.IsOwner();
             }
         }
 
@@ -365,8 +365,8 @@ namespace MultiplayerDeck
                 {
                     StageMapSerializer.NetStageMapPacket packet = StageMapSerializer.CreateMapPacket();
                     byte[] data = StageMapSerializer.SerializeMapPacket(packet);
-                    Debug.Log("[MultiplayerDeck] Map Packet Size: " + data.Count());
-                    NetworkHelper.Service()?.SendPacket(StageMapSerializer.SerializeMapPacket(packet));
+                    Debug.Log("[MultiplayerDeck] Map Packet Size: " + data.Length);
+                    NetworkHelper.SendToAll(data);
                 }
                 else
                 {

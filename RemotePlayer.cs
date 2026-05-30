@@ -21,6 +21,12 @@ namespace MultiplayerDeck
 			GetAvatar();
 		}
 
+		public RemotePlayer(ulong lanId, string name)
+		{
+			this.steamUser = new CSteamID(lanId);
+			this.userName = name ?? "Unknown";
+		}
+
 		public void GetAvatar()
 		{
 			bool flag = SteamFriends.RequestUserInformation(steamUser, false);

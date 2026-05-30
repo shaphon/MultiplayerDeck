@@ -1,4 +1,4 @@
-﻿using ChronoArkMod.Plugin;
+using ChronoArkMod.Plugin;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,6 +12,10 @@ namespace MultiplayerDeck
     {
         private bool steamInitialized;
         private bool windowShow = true;
+        private bool useLanMode = false;
+        private string lanIp = "127.0.0.1";
+        private string lanPlayerName = "Player";
+        private string lanPort = "24567";
         private Rect windowRect = new Rect(980f, 520f, 560f, 330f);
         private Vector2 lobbyScroll;
         private GUIStyle titleStyle;
@@ -51,6 +55,16 @@ namespace MultiplayerDeck
                 return;
             }
 
+            if (useLanMode)
+            {
+                if (NetworkHelper.lan == null)
+                {
+                    NetworkHelper.lan = new LanManager();
+                }
+                steamInitialized = true;
+                return;
+            }
+
             if (SteamManager.Initialized)
             {
                 NetworkHelper.Initialize();
@@ -75,7 +89,14 @@ namespace MultiplayerDeck
 
             if (!steamInitialized)
             {
-                GUILayout.Label("Steam is not initialized.", mutedStyle);
+                if (useLanMode)
+                {
+                    GUILayout.Label("Enter player name and host or join a LAN game.", mutedStyle);
+                }
+                else
+                {
+                    GUILayout.Label("Steam is not initialized.", mutedStyle);
+                }
                 GUI.DragWindow();
                 return;
             }
@@ -105,19 +126,33 @@ namespace MultiplayerDeck
         {
             GUILayout.BeginVertical(GUI.skin.box);
             GUILayout.Label("No active lobby", subTitleStyle);
-            GUILayout.Label("Create a Steam lobby to start multiplayer synchronization.", mutedStyle);
-            GUILayout.Space(8f);
+
+            // Mode toggle
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("Create Lobby", GUILayout.Height(34f)) || (windowShow && Input.GetKeyDown(KeyCode.Return)))
-            {
-                NetworkHelper.CreateLobby();
-            }
-            if (GUILayout.Button("Refresh Lobbies", GUILayout.Height(34f)))
-            {
-                NetworkHelper.GetLobbies();
-            }
+            useLanMode = GUILayout.Toggle(useLanMode, "LAN Mode");
+            GUILayout.FlexibleSpace();
             GUILayout.EndHorizontal();
-            DrawLobbyList();
+
+            if (useLanMode)
+            {
+                DrawLanConnect();
+            }
+            else
+            {
+                GUILayout.Label("Create a Steam lobby to start multiplayer synchronization.", mutedStyle);
+                GUILayout.Space(8f);
+                GUILayout.BeginHorizontal();
+                if (GUILayout.Button("Create Lobby", GUILayout.Height(34f)) || (windowShow && Input.GetKeyDown(KeyCode.Return)))
+                {
+                    NetworkHelper.CreateLobby();
+                }
+                if (GUILayout.Button("Refresh Lobbies", GUILayout.Height(34f)))
+                {
+                    NetworkHelper.GetLobbies();
+                }
+                GUILayout.EndHorizontal();
+                DrawLobbyList();
+            }
             GUILayout.EndVertical();
         }
 
@@ -142,16 +177,107 @@ namespace MultiplayerDeck
             }
         }
 
+        private void DrawLanConnect()
+        {
+            GUILayout.Label("LAN Multiplayer", subTitleStyle);
+            GUILayout.Space(4f);
+
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Name:", GUILayout.Width(45f));
+            lanPlayerName = GUILayout.TextField(lanPlayerName, GUILayout.Width(120f));
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("IP:", GUILayout.Width(45f));
+            lanIp = GUILayout.TextField(lanIp, GUILayout.Width(120f));
+            GUILayout.Label("Port:", GUILayout.Width(40f));
+            lanPort = GUILayout.TextField(lanPort, GUILayout.Width(50f));
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Host LAN Game", GUILayout.Height(34f)))
+            {
+                int port = 24567;
+                int.TryParse(lanPort, out port);
+                if (NetworkHelper.lan == null)
+                {
+                    NetworkHelper.lan = new LanManager();
+                }
+                NetworkHelper.lan.HostLobby(port, lanPlayerName);
+            }
+            if (GUILayout.Button("Join LAN Game", GUILayout.Height(34f)))
+            {
+                int port = 24567;
+                int.TryParse(lanPort, out port);
+                if (NetworkHelper.lan == null)
+                {
+                    NetworkHelper.lan = new LanManager();
+                }
+                NetworkHelper.lan.JoinLobby(lanIp, port, lanPlayerName);
+            }
+            GUILayout.EndHorizontal();
+
+            if (GUILayout.Button("Discover LAN Games", GUILayout.Height(28f)))
+            {
+                if (NetworkHelper.lan == null)
+                {
+                    NetworkHelper.lan = new LanManager();
+                }
+                NetworkHelper.lan.DiscoverLobbies();
+            }
+
+            // Show discovered LAN lobbies
+            if (NetworkHelper.lan != null && NetworkHelper.lan.DiscoveredLobbies.Count > 0)
+            {
+                GUILayout.Space(8f);
+                GUILayout.Label("Discovered LAN Games:", subTitleStyle);
+                foreach (LanLobbyInfo info in NetworkHelper.lan.DiscoveredLobbies)
+                {
+                    GUILayout.BeginHorizontal(GUI.skin.box);
+                    GUILayout.Label(string.Format("{0} ({1}/4) - {2}", info.Name, info.PlayerCount, info.IpAddress), playerNameStyle);
+                    if (GUILayout.Button("Join", GUILayout.Width(70f)))
+                    {
+                        lanIp = info.IpAddress;
+                        if (NetworkHelper.lan == null)
+                        {
+                            NetworkHelper.lan = new LanManager();
+                        }
+                        NetworkHelper.lan.JoinLobby(info.IpAddress, info.Port, lanPlayerName);
+                    }
+                    GUILayout.EndHorizontal();
+                }
+            }
+        }
+
         private void DrawLobby()
         {
-            SteamLobby lobby = TogetherManager.currentLobby;
-            lobby.FetchAllMetadata();
+            string lobbyName, lobbyOwner;
+            int lobbyCapacity;
+            bool isLobbyOwner;
+
+            if (TogetherManager.lanLobby != null)
+            {
+                LanLobby lanLobby = TogetherManager.lanLobby;
+                lobbyName = lanLobby.name;
+                lobbyOwner = lanLobby.owner;
+                lobbyCapacity = lanLobby.GetCapacity();
+                isLobbyOwner = lanLobby.IsOwner();
+            }
+            else
+            {
+                SteamLobby lobby = TogetherManager.currentLobby;
+                lobby.FetchAllMetadata();
+                lobbyName = string.IsNullOrEmpty(lobby.name) ? lobby.owner + "'s Lobby" : lobby.name;
+                lobbyOwner = lobby.owner;
+                lobbyCapacity = lobby.GetCapacity();
+                isLobbyOwner = lobby.IsOwner();
+            }
 
             GUILayout.BeginVertical(GUI.skin.box);
             GUILayout.BeginHorizontal();
             GUILayout.BeginVertical();
-            GUILayout.Label(string.IsNullOrEmpty(lobby.name) ? lobby.owner + "'s Lobby" : lobby.name, subTitleStyle);
-            GUILayout.Label(string.Format("Owner: {0}     Players: {1}/{2}", lobby.owner, TogetherManager.players.Count, lobby.GetCapacity()), mutedStyle);
+            GUILayout.Label(lobbyName, subTitleStyle);
+            GUILayout.Label(string.Format("Owner: {0}     Players: {1}/{2}", lobbyOwner, TogetherManager.players.Count, lobbyCapacity), mutedStyle);
             GUILayout.EndVertical();
             GUILayout.FlexibleSpace();
 
@@ -163,7 +289,7 @@ namespace MultiplayerDeck
                 return;
             }
 
-            GUI.enabled = lobby.IsOwner();
+            GUI.enabled = isLobbyOwner;
             if (GUILayout.Button("Disband", GUILayout.Width(86f), GUILayout.Height(30f)))
             {
                 NetworkHelper.DisbandLobby();
@@ -203,7 +329,7 @@ namespace MultiplayerDeck
             Rect nameRect = new Rect(rowRect.x + 58f, rowRect.y + 8f, rowRect.width - 170f, 22f);
             GUI.Label(nameRect, string.IsNullOrEmpty(player.userName) ? "Unknown Player" : player.userName, playerNameStyle);
 
-            if (TogetherManager.currentLobby != null && player.IsUser(TogetherManager.currentLobby.ownerID))
+            if (TogetherManager.ActiveLobby != null && player.IsUser(TogetherManager.ActiveLobby.ownerID))
             {
                 Rect ownerRect = new Rect(rowRect.x + 58f, rowRect.y + 31f, 54f, 18f);
                 GUI.DrawTexture(ownerRect, ownerTexture);

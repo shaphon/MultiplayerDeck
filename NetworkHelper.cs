@@ -42,6 +42,8 @@ namespace MultiplayerDeck
 	{
 		public static SteamIntegration steam;
 
+		public static LanManager lan;
+
 		public static List<SteamLobby> lobbies = new List<SteamLobby>();
 
 		public static bool embarked = false;
@@ -56,6 +58,17 @@ namespace MultiplayerDeck
 
 		public static void Update()
 		{
+			if (IsLanActive())
+			{
+				lan.GetPacket(packet);
+				while (packet.HasPacket() && IsLobbyActive())
+				{
+					ParseData(packet.GetData(), packet.GetPlayer());
+					lan.GetPacket(packet);
+				}
+				return;
+			}
+
 			if (Service() == null)
 			{
 				return;
@@ -115,7 +128,7 @@ namespace MultiplayerDeck
 						}
 						case NetDataType.RequestForBattleStartDeck:
 						{
-							if (TogetherManager.currentLobby != null && !TogetherManager.currentLobby.IsOwner())
+							if (IsLobbyActive() && !IsLobbyOwner())
 							{
 								BattleSyncManager.Instance.SendPersonalDeck();
 							}
@@ -123,9 +136,9 @@ namespace MultiplayerDeck
 						}
 						case NetDataType.BattleStartDeck:
 						{
-                            Debug.Log("[DeckSync] Received BattleStartDeck. IsOwner=" + TogetherManager.currentLobby.IsOwner());
+                            Debug.Log("[DeckSync] Received BattleStartDeck. IsOwner=" + IsLobbyOwner());
 
-                            if (TogetherManager.currentLobby.IsOwner())
+                            if (IsLobbyOwner())
 							{
 								List<SkillNetworkDTO> deck = SkillSerializer.SkillDTOListDeserialize(binaryReader);
 								BattleSyncManager.Instance.ReceiveDeckContribution(playerInfo, deck);
@@ -214,6 +227,7 @@ namespace MultiplayerDeck
 							break;
 						}
 						case NetDataType.StageMap:
+							Debug.Log("[MultiplayerDeck] Received StageMap, IsLobbyOwner=" + MultiplayerDeck_Plugin.IsLobbyOwner);
 						{
 							if (!MultiplayerDeck_Plugin.IsLobbyOwner)
 							{
@@ -250,7 +264,7 @@ namespace MultiplayerDeck
 						{
 							ulong lobbyId = binaryReader.ReadUInt64();
 							string reason = binaryReader.ReadString();
-							if (TogetherManager.currentLobby != null && TogetherManager.currentLobby.steamID.m_SteamID == lobbyId)
+							if (TogetherManager.ActiveLobby != null && TogetherManager.ActiveLobby.steamID.m_SteamID == lobbyId)
 							{
 								Debug.Log("[MultiplayerDeck] Lobby closed by owner: " + reason);
 								MultiLucySkelController.CleanupAllRemotePlayers();
@@ -332,7 +346,7 @@ namespace MultiplayerDeck
 			byte[] array = GenerateData(type);
 			if (array != null)
 			{
-				Service()?.SendPacket(array);
+				SendToAll(array);
 			}
 		}
 
@@ -370,7 +384,7 @@ namespace MultiplayerDeck
 				binaryWriter.Write(preset);
 				binaryWriter.Write(noGameover);
 			}
-			Service()?.SendPacket(memoryStream.ToArray());
+			SendToAll(memoryStream.ToArray());
 		}
 
 		public static void SendEnemyHpChange(string enemy, int position, int hp)
@@ -383,7 +397,7 @@ namespace MultiplayerDeck
 				binaryWriter.Write(position);
 				binaryWriter.Write(hp);
 			}
-			Service()?.SendPacket(memoryStream.ToArray());
+			SendToAll(memoryStream.ToArray());
 		}
 
 		public static void SendVote(VoteManager.VoteTheme voteTheme, ulong playerId, bool cancel)
@@ -396,7 +410,7 @@ namespace MultiplayerDeck
 				binaryWriter.Write(playerId);
 				binaryWriter.Write(cancel);
 			}
-			Service()?.SendPacket(memoryStream.ToArray());
+			SendToAll(memoryStream.ToArray());
 		}
 
 		public static void SendDeckState(List<Skill> skills, bool usedDeck = false)
@@ -414,7 +428,7 @@ namespace MultiplayerDeck
                 binaryWriter.Write(usedDeck);
 				SkillSerializer.SkillListSerialize(binaryWriter, skills);
             }
-            Service()?.SendPacket(memoryStream.ToArray());
+            SendToAll(memoryStream.ToArray());
 		}
 
 		public static void SendDeckMutationReport(List<Skill> skills, bool usedDeck = false)
@@ -431,7 +445,7 @@ namespace MultiplayerDeck
 				binaryWriter.Write(usedDeck);
 				SkillSerializer.SkillListSerialize(binaryWriter, skills);
 			}
-			Service()?.SendPacket(memoryStream.ToArray());
+			SendToAll(memoryStream.ToArray());
 		}
 
 		public static void SendRequestDraw(int count)
@@ -442,7 +456,7 @@ namespace MultiplayerDeck
 				binaryWriter.Write((int)NetDataType.RequestDraw);
 				binaryWriter.Write(count);
 			}
-			Service()?.SendPacket(memoryStream.ToArray());
+			SendToAll(memoryStream.ToArray());
 		}
 
 		public static void SendDrawResult(ulong targetPlayerId, int version, List<SkillNetworkDTO> cards)
@@ -455,7 +469,7 @@ namespace MultiplayerDeck
 				binaryWriter.Write(version);
 				SkillSerializer.SkillDTOListSerialize(binaryWriter, cards);
 			}
-			Service()?.SendPacket(memoryStream.ToArray());
+			SendToAll(memoryStream.ToArray());
 		}
 
 		public static void SendTurnActionNum(int value)
@@ -466,7 +480,7 @@ namespace MultiplayerDeck
 				binaryWriter.Write((int)NetDataType.TurnActionNum);
 				binaryWriter.Write(value);
 			}
-			Service()?.SendPacket(memoryStream.ToArray());
+			SendToAll(memoryStream.ToArray());
 		}
 
 		public static void SendSkillPlayed(string skillName)
@@ -477,7 +491,7 @@ namespace MultiplayerDeck
 				binaryWriter.Write((int)NetDataType.SkillPlayed);
 				binaryWriter.Write(skillName ?? string.Empty);
 			}
-			Service()?.SendPacket(memoryStream.ToArray());
+			SendToAll(memoryStream.ToArray());
 		}
 
 		public static void SendExchangeSkill(ulong targetAccountId, Skill skill)
@@ -489,7 +503,7 @@ namespace MultiplayerDeck
 				binaryWriter.Write(targetAccountId);
 				SkillSerializer.SkillSerialize(binaryWriter, skill);
             }
-            Service()?.SendPacket(memoryStream.ToArray());
+            SendToAll(memoryStream.ToArray());
 		}
 
 		public static void SendMonsterClear(Vector2 pos)
@@ -501,7 +515,7 @@ namespace MultiplayerDeck
                 binaryWriter.Write(pos.x);
 				binaryWriter.Write(pos.y);
             }
-            Service()?.SendPacket(memoryStream.ToArray());
+            SendToAll(memoryStream.ToArray());
         }
 
 		public static void SendPosition(Vector2 pos, float jumpY, bool isMoving, bool facingRight, string skinName = null)
@@ -518,24 +532,25 @@ namespace MultiplayerDeck
 				binaryWriter.Write(facingRight);
 				binaryWriter.Write(skinName ?? string.Empty);
 			}
-			Service()?.SendPacket(memoryStream.ToArray());
+			SendToAll(memoryStream.ToArray());
 		}
 
 		public static void SendLobbyClosed(string reason)
 		{
-			if (TogetherManager.currentLobby == null)
+			if (TogetherManager.ActiveLobby == null)
 			{
 				return;
 			}
+			ulong lobbyId = TogetherManager.ActiveLobby.steamID.m_SteamID;
 
 			MemoryStream memoryStream = new MemoryStream();
 			using (BinaryWriter binaryWriter = new BinaryWriter(memoryStream))
 			{
 				binaryWriter.Write((int)NetDataType.LobbyClosed);
-				binaryWriter.Write(TogetherManager.currentLobby.steamID.m_SteamID);
+				binaryWriter.Write(lobbyId);
 				binaryWriter.Write(reason ?? string.Empty);
 			}
-			Service()?.SendPacket(memoryStream.ToArray());
+			SendToAll(memoryStream.ToArray());
 		}
 
 		public static void SendVoteStart(VoteManager.VoteTheme voteTheme)
@@ -546,11 +561,15 @@ namespace MultiplayerDeck
 				binaryWriter.Write((int)NetDataType.VoteStart);
 				binaryWriter.Write((int)voteTheme);
 			}
-			Service()?.SendPacket(memoryStream.ToArray());
+			SendToAll(memoryStream.ToArray());
 		}
 
 		public static SteamIntegration Service()
 		{
+			if (IsLanActive())
+			{
+				return null;
+			}
 			if (TogetherManager.currentLobby == null)
 			{
 				return null;
@@ -562,8 +581,39 @@ namespace MultiplayerDeck
 			return TogetherManager.currentLobby.service;
 		}
 
+		public static bool IsLanActive()
+		{
+			return lan != null && lan.IsConnected;
+		}
+
+		public static bool IsLobbyActive()
+		{
+			return TogetherManager.ActiveLobby != null;
+		}
+
+		public static bool IsLobbyOwner()
+		{
+			return TogetherManager.ActiveLobby != null && TogetherManager.ActiveLobby.IsOwner();
+		}
+
+		public static void SendToAll(byte[] data)
+		{
+			if (IsLanActive())
+			{
+				lan.SendPacket(data);
+			}
+			else
+			{
+				Service()?.SendPacket(data);
+			}
+		}
+
 		public static void UpdateLobbyData()
 		{
+			if (TogetherManager.IsLanMode)
+			{
+				return; // LAN doesn't use Steam lobby metadata
+			}
 			if (TogetherManager.currentLobby != null)
 			{
 				Dictionary<string, string> dictionary = new Dictionary<string, string>();
@@ -581,11 +631,16 @@ namespace MultiplayerDeck
 
 		public static void SetLobbyPrivate(bool toggle)
 		{
-			TogetherManager.currentLobby.SetPrivate(toggle);
+			TogetherManager.ActiveLobby?.SetPrivate(toggle);
 		}
 
 		public static void LeaveLobby()
 		{
+			if (IsLanActive())
+			{
+				lan.Disconnect();
+				return;
+			}
 			if (TogetherManager.currentLobby != null)
 			{
 				bool wasOwner = TogetherManager.currentLobby.IsOwner();
@@ -602,6 +657,11 @@ namespace MultiplayerDeck
 
 		public static void DisbandLobby()
 		{
+			if (IsLanActive())
+			{
+				lan.Disconnect();
+				return;
+			}
 			if (TogetherManager.currentLobby == null)
 			{
 				return;
@@ -691,7 +751,7 @@ namespace MultiplayerDeck
 					binaryWriter.Write(0);
 				}
 			}
-			Service()?.SendPacket(memoryStream.ToArray());
+			SendToAll(memoryStream.ToArray());
 		}
 	}
 }

@@ -422,7 +422,7 @@ namespace MultiplayerDeck
 
         private static bool IsAuthoritativeDeckStateSender(RemotePlayer sender)
         {
-            if (TogetherManager.currentLobby == null)
+            if (TogetherManager.ActiveLobby == null)
             {
                 return false;
             }
@@ -430,7 +430,7 @@ namespace MultiplayerDeck
             {
                 return MultiplayerDeck_Plugin.IsLobbyOwner;
             }
-            return TogetherManager.currentLobby.ownerID.m_SteamID == sender.steamUser.m_SteamID;
+            return TogetherManager.ActiveLobby.ownerID.m_SteamID == sender.steamUser.m_SteamID;
         }
 
         private static void RemoveSkillFromDecks(SkillNetworkDTO dto)
@@ -542,7 +542,7 @@ namespace MultiplayerDeck
 
         public void SendRequestForBattleStartDeck()
         {
-            if (TogetherManager.currentLobby == null || !TogetherManager.currentLobby.IsOwner())
+            if (TogetherManager.ActiveLobby == null || !MultiplayerDeck_Plugin.IsLobbyOwner)
             {
                 return;
             }
@@ -662,7 +662,7 @@ namespace MultiplayerDeck
         {
             Debug.Log("[DeckSync] Client ReceiveCombinedDeck deck count: " + (deck == null ? -1 : deck.Count));
 
-            if (TogetherManager.currentLobby == null || TogetherManager.currentLobby.IsOwner())
+            if (TogetherManager.ActiveLobby == null || MultiplayerDeck_Plugin.IsLobbyOwner)
             {
                 return;
             }

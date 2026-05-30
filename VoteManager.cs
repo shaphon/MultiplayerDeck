@@ -42,7 +42,7 @@ namespace MultiplayerDeck
 
             public int GetTotalPlayerCount()
             {
-                if (TogetherManager.currentLobby != null)
+                if (TogetherManager.ActiveLobby != null)
                 {
                     return Math.Max(1, TogetherManager.players.Count);
                 }
