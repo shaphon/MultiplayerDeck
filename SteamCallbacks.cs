@@ -109,22 +109,27 @@ namespace MultiplayerDeck
                 NetworkHelper.AddPlayer(new RemotePlayer(targetPlayer));
                 NetworkHelper.SendData(NetDataType.Version);
                 NetworkHelper.SendData(NetDataType.Ready);
+                MultiLucySkelController.TryCreateRemotePlayer(targetPlayer.m_SteamID);
             }
             RemotePlayer player = SteamIntegration.GetPlayer(targetPlayer);
             if ((int)even == 2)
             {
+                MultiLucySkelController.CleanupRemotePlayer(targetPlayer.m_SteamID);
                 NetworkHelper.RemovePlayer(player);
             }
             if ((int)even == 4)
             {
+                MultiLucySkelController.CleanupRemotePlayer(targetPlayer.m_SteamID);
                 NetworkHelper.RemovePlayer(player);
             }
             if ((int)even == 8)
             {
+                MultiLucySkelController.CleanupRemotePlayer(targetPlayer.m_SteamID);
                 NetworkHelper.RemovePlayer(player);
             }
             if ((int)even == 16)
             {
+                MultiLucySkelController.CleanupRemotePlayer(targetPlayer.m_SteamID);
                 NetworkHelper.RemovePlayer(player);
             }
             if (TogetherManager.currentLobby == null)
