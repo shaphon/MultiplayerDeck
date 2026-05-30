@@ -219,19 +219,53 @@ namespace MultiplayerDeck
         #endregion
 
         #region 远端玩家创建与管理
-        private static GameObject _localPlayerPrefab;
+        private static GameObject _remotePlayerTemplate;
         private static readonly HashSet<ulong> _createdRemotePlayers = new HashSet<ulong>();
         private static readonly List<ulong> _pendingPlayers = new List<ulong>();
         private static bool _isRetrying = false;
         private static readonly float RetryInterval = 1f;
         private static float _lastRetryTime = 0f;
 
+        private static void CapturePlayerTemplate()
+        {
+            if (_remotePlayerTemplate != null) return;
+            if (FieldSystem.instance == null || FieldSystem.instance.Playercontrol == null) return;
+
+            var original = FieldSystem.instance.Playercontrol.gameObject;
+            _remotePlayerTemplate = GameObject.Instantiate(original);
+            _remotePlayerTemplate.name = "_RemotePlayerTemplate";
+            _remotePlayerTemplate.SetActive(false);
+            GameObject.DontDestroyOnLoad(_remotePlayerTemplate);
+            Debug.Log("[MultiLucySkelController] Captured hidden remote player template.");
+        }
+
+        public static void EnsureRemotePlayerController(ulong steamId)
+        {
+            if (_playerControllers.TryGetValue(steamId, out var existing) && existing != null && existing.gameObject != null)
+                return;
+
+            _playerControllers.Remove(steamId);
+
+            if (_remotePlayerTemplate == null)
+            {
+                CapturePlayerTemplate();
+                if (_remotePlayerTemplate == null)
+                {
+                    Debug.LogWarning("[MultiLucySkelController] Cannot create remote player for " + steamId + ": template not available.");
+                    return;
+                }
+            }
+
+            CreateRemotePlayerController(steamId);
+        }
+
         public static void TryCreateRemotePlayer(ulong steamId)
         {
             if (_createdRemotePlayers.Contains(steamId))
-            {
                 return;
-            }
+
+            _createdRemotePlayers.Add(steamId);
+            CapturePlayerTemplate();
 
             if (FieldSystem.instance == null || FieldSystem.instance.Playercontrol == null)
             {
@@ -244,12 +278,7 @@ namespace MultiplayerDeck
                 return;
             }
 
-            if (_localPlayerPrefab == null)
-            {
-                _localPlayerPrefab = FieldSystem.instance.Playercontrol.gameObject;
-            }
-
-            CreateRemotePlayerController(steamId);
+            EnsureRemotePlayerController(steamId);
         }
 
         public static void InitializeRemotePlayers()
@@ -261,33 +290,28 @@ namespace MultiplayerDeck
                 return;
             }
 
-            _localPlayerPrefab = FieldSystem.instance.Playercontrol.gameObject;
+            CapturePlayerTemplate();
 
             foreach (RemotePlayer player in TogetherManager.players)
             {
                 if (player == null || TogetherManager.currentUser != null && player.IsUser(TogetherManager.currentUser.steamUser))
-                {
                     continue;
-                }
 
                 TryCreateRemotePlayer(player.steamUser.m_SteamID);
+                EnsureRemotePlayerController(player.steamUser.m_SteamID);
             }
         }
 
         private static void StartRetryLoop()
         {
             if (_isRetrying || _pendingPlayers.Count == 0)
-            {
                 return;
-            }
 
             _isRetrying = true;
             _lastRetryTime = Time.time;
 
-            if (FieldSystem.instance != null)
-            {
-                FieldSystem.instance.StartCoroutine(RetryCreatePendingPlayers());
-            }
+            SaveManager.savemanager?.StartCoroutine(RetryCreatePendingPlayers());
+
         }
 
         private static System.Collections.IEnumerator RetryCreatePendingPlayers()
@@ -309,18 +333,13 @@ namespace MultiplayerDeck
                     continue;
                 }
 
-                if (_localPlayerPrefab == null)
-                {
-                    _localPlayerPrefab = FieldSystem.instance.Playercontrol.gameObject;
-                }
+                CapturePlayerTemplate();
 
                 var toCreate = new List<ulong>(_pendingPlayers);
                 _pendingPlayers.Clear();
 
                 foreach (ulong steamId in toCreate)
-                {
-                    CreateRemotePlayerController(steamId);
-                }
+                    EnsureRemotePlayerController(steamId);
             }
 
             _isRetrying = false;
@@ -328,20 +347,15 @@ namespace MultiplayerDeck
 
         private static void CreateRemotePlayerController(ulong steamId)
         {
-            if (_createdRemotePlayers.Contains(steamId))
+            if (_remotePlayerTemplate == null)
             {
-                Debug.LogWarning("[MultiLucySkelController] Remote player already created for SteamID: " + steamId);
+                Debug.LogError("[MultiLucySkelController] Remote player template not available.");
                 return;
             }
 
-            if (_localPlayerPrefab == null)
-            {
-                Debug.LogError("[MultiLucySkelController] Local player prefab not available.");
-                return;
-            }
-
-            GameObject remoteObj = GameObject.Instantiate(_localPlayerPrefab);
+            GameObject remoteObj = GameObject.Instantiate(_remotePlayerTemplate);
             remoteObj.name = "RemotePlayer_" + steamId;
+            remoteObj.SetActive(true);
 
             PlayerController remoteController = remoteObj.GetComponent<PlayerController>();
             if (remoteController == null)
@@ -359,21 +373,16 @@ namespace MultiplayerDeck
             }
 
             if (remoteController.LucyCharMiantr != null)
-            {
                 remoteController.LucyCharMiantr.localPosition = Vector3.zero;
-            }
 
             if (remoteController.rigiedbody != null)
-            {
                 remoteController.rigiedbody.velocity = Vector2.zero;
-            }
 
             remoteController.Movevec = Vector2.zero;
             remoteController.DonUpdate = false;
             remoteController.enabled = true;
 
             RegisterPlayerController(steamId, remoteController);
-            _createdRemotePlayers.Add(steamId);
 
             CreatePlayerNameTag(remoteObj, steamId);
 
@@ -435,7 +444,11 @@ namespace MultiplayerDeck
             _syncBuffers.Clear();
             _createdRemotePlayers.Clear();
             _pendingPlayers.Clear();
-            _localPlayerPrefab = null;
+            if (_remotePlayerTemplate != null)
+            {
+                GameObject.Destroy(_remotePlayerTemplate);
+                _remotePlayerTemplate = null;
+            }
             _isRetrying = false;
         }
 
@@ -521,6 +534,8 @@ namespace MultiplayerDeck
         /// </summary>
         public static void OnReceiveRemoteState(ulong steamId, Vector2 pos, float jumpY, float timestamp, bool isMoving, bool facingRight, string skinName = null)
         {
+            EnsureRemotePlayerController(steamId);
+
             if (!_syncBuffers.ContainsKey(steamId))
             {
                 _syncBuffers[steamId] = new List<SyncPacket>();
