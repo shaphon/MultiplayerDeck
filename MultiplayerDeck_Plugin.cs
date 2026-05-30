@@ -21,6 +21,7 @@ namespace MultiplayerDeck
         {
             this.harmony = new Harmony(base.GetGuid());
             this.harmony.PatchAll();
+            BuffSyncManager.RegisterChronoArkBuffs();
         }
 
         public override void Dispose()

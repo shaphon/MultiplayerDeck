@@ -34,7 +34,8 @@ namespace MultiplayerDeck
 		BossClear,
 		LobbyClosed,
 		NetWorkSkillEffect,
-		PlayerPosition
+		PlayerPosition,
+		BuffAdd
 	}
 
 	public class NetworkHelper
@@ -286,6 +287,30 @@ namespace MultiplayerDeck
 							if (playerInfo != null)
 							{
 								MultiLucySkelController.OnReceiveRemoteState(playerInfo.steamUser.m_SteamID, new Vector2(x, y), jumpY, timestamp, isMoving, facingRight, skinName);
+							}
+							break;
+						}
+
+						case NetDataType.BuffAdd:
+						{
+							string buffKey = binaryReader.ReadString();
+							string targetCharKey = binaryReader.ReadString();
+							int targetPosition = binaryReader.ReadInt32();
+							bool targetIsAlly = binaryReader.ReadBoolean();
+							string userCharKey = binaryReader.ReadString();
+							int userPosition = binaryReader.ReadInt32();
+							bool userIsAlly = binaryReader.ReadBoolean();
+							int stackNum = binaryReader.ReadInt32();
+							int lifetime = binaryReader.ReadInt32();
+							int customDataLen = binaryReader.ReadInt32();
+							byte[] customData = null;
+							if (customDataLen > 0)
+							{
+								customData = binaryReader.ReadBytes(customDataLen);
+							}
+							if (playerInfo != TogetherManager.currentUser)
+							{
+								BuffSyncManager.HandleRemoteBuffAdd(buffKey, targetCharKey, targetPosition, targetIsAlly, userCharKey, userPosition, userIsAlly, stackNum, lifetime, customData);
 							}
 							break;
 						}
@@ -639,6 +664,34 @@ namespace MultiplayerDeck
 			}
 
 			VoteManager.Instance.SyncPlayersWithLobby();
+		}
+
+		public static void SendBuffAdd(string buffKey, string targetCharKey, int targetPosition, bool targetIsAlly, string userCharKey, int userPosition, bool userIsAlly, int stackNum, int lifetime, byte[] customData)
+		{
+			MemoryStream memoryStream = new MemoryStream();
+			using (BinaryWriter binaryWriter = new BinaryWriter(memoryStream))
+			{
+				binaryWriter.Write((int)NetDataType.BuffAdd);
+				binaryWriter.Write(buffKey ?? "");
+				binaryWriter.Write(targetCharKey ?? "");
+				binaryWriter.Write(targetPosition);
+				binaryWriter.Write(targetIsAlly);
+				binaryWriter.Write(userCharKey ?? "");
+				binaryWriter.Write(userPosition);
+				binaryWriter.Write(userIsAlly);
+				binaryWriter.Write(stackNum);
+				binaryWriter.Write(lifetime);
+				if (customData != null && customData.Length > 0)
+				{
+					binaryWriter.Write(customData.Length);
+					binaryWriter.Write(customData);
+				}
+				else
+				{
+					binaryWriter.Write(0);
+				}
+			}
+			Service()?.SendPacket(memoryStream.ToArray());
 		}
 	}
 }
