@@ -4,7 +4,7 @@ using System.Text;
 using Steamworks;
 using UnityEngine;
 
-namespace MultiplayerDeck
+namespace MultiplayerDeck.Network
 {
 	public class SteamLobby : ILobby
 	{

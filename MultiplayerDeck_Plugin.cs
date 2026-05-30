@@ -2,6 +2,8 @@ using ChronoArkMod;
 using ChronoArkMod.Plugin;
 using GameDataEditor;
 using HarmonyLib;
+using MultiplayerDeck.Network;
+using MultiplayerDeck.Network.Messages;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -134,7 +136,7 @@ namespace MultiplayerDeck
                 if (__instance.BClickWaste)
                 {
                     int seed = __instance.Myskill.CharinfoSkilldata.Seed;
-                    NetworkHelper.SendExchangeSkill(BattleSyncManager.RandomOtherPlayerId(), __instance.Myskill.CloneSkill(true));
+                    MessageDispatcher.Send(new ExchangeSkillMessage { TargetAccountId = BattleSyncManager.RandomOtherPlayerId(), Skill = __instance.Myskill.CloneSkill(true) });
                     BattleSystem.instance.StartCoroutine(RemoveWastedSkill());
                     IEnumerator RemoveWastedSkill()
                     {
@@ -182,7 +184,7 @@ namespace MultiplayerDeck
                 {
                     return;
                 }
-                NetworkHelper.SendBattleStart(QueueData.Key, NomalBattle, curse, RewardKey, Preset, NoGameOver);
+                MessageDispatcher.Send(new BattleStartMessage { QueueData = QueueData.Key, NormalBattle = NomalBattle, Cursed = curse, RewardKey = RewardKey, Preset = Preset, NoGameover = NoGameOver });
             }
         }
 
@@ -364,13 +366,13 @@ namespace MultiplayerDeck
                 if (IsLobbyOwner)
                 {
                     StageMapSerializer.NetStageMapPacket packet = StageMapSerializer.CreateMapPacket();
-                    byte[] data = StageMapSerializer.SerializeMapPacket(packet);
-                    Debug.Log("[MultiplayerDeck] Map Packet Size: " + data.Length);
-                    NetworkHelper.SendToAll(data);
+                    byte[] xmlPayload = StageMapSerializer.SerializeMapPayload(packet);
+                    Debug.Log("[MultiplayerDeck] Map Packet Size: " + xmlPayload.Length);
+                    MessageDispatcher.Send(new StageMapMessage { Payload = xmlPayload });
                 }
                 else
                 {
-                    NetworkHelper.SendData(NetDataType.NextStageComplete);
+                    MessageDispatcher.Send(new NextStageCompleteMessage());
                 }
 
                 MultiLucySkelController.InitializeRemotePlayers();
@@ -388,7 +390,7 @@ namespace MultiplayerDeck
                 {
                     return;
                 }
-                NetworkHelper.SendMonsterClear(Pos);
+                MessageDispatcher.Send(new MonsterClearMessage { X = Pos.x, Y = Pos.y });
             }
         }
 
@@ -407,7 +409,7 @@ namespace MultiplayerDeck
                 if (value && !StageSyncManager.Instance.bossClear)
                 {
                     StageSyncManager.Instance.bossClear = true;
-                    NetworkHelper.SendData(NetDataType.BossClear);
+                    MessageDispatcher.Send(new BossClearMessage());
                 }
             }
 
@@ -423,7 +425,7 @@ namespace MultiplayerDeck
                 if (value && !StageSyncManager.Instance.bossClear)
                 {
                     StageSyncManager.Instance.bossClear = true;
-                    NetworkHelper.SendData(NetDataType.BossClear);
+                    MessageDispatcher.Send(new BossClearMessage());
                 }
             }
         }

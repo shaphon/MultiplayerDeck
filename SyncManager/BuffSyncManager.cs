@@ -2,7 +2,8 @@ using BuffSyncAPI;
 using ChronoArkMod.Plugin;
 using GameDataEditor;
 using HarmonyLib;
-using MultiplayerDeck;
+using MultiplayerDeck.Network;
+using MultiplayerDeck.Network.Messages;
 using System;
 using UnityEngine;
 
@@ -126,7 +127,7 @@ namespace MultiplayerDeck
                     }
                 }
 
-                NetworkHelper.SendBuffAdd(key, targetKey, targetPosition, targetIsAlly, userKey, userPosition, userIsAlly, __result.StackNum, __result.LifeTime, customData);
+                MessageDispatcher.Send(new BuffAddMessage { BuffKey = key, TargetCharKey = targetKey, TargetPosition = targetPosition, TargetIsAlly = targetIsAlly, UserCharKey = userKey, UserPosition = userPosition, UserIsAlly = userIsAlly, StackNum = __result.StackNum, Lifetime = __result.LifeTime, CustomData = customData });
             }
 
 

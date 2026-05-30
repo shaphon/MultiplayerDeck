@@ -1,3 +1,5 @@
+using MultiplayerDeck.Network;
+using MultiplayerDeck.Network.Messages;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -147,7 +149,7 @@ namespace MultiplayerDeck
 
             if (broadcast)
             {
-                NetworkHelper.SendVoteStart(voteTheme);
+                MessageDispatcher.Send(new VoteStartMessage { Theme = voteTheme });
             }
 
             OnVoteStarted?.Invoke(session);
@@ -172,7 +174,7 @@ namespace MultiplayerDeck
 
             ulong playerId = TogetherManager.currentUser.steamUser.m_SteamID;
             ApplyVote(session, playerId, cancel);
-            NetworkHelper.SendVote(voteTheme, playerId, cancel);
+            MessageDispatcher.Send(new VoteMessage { Theme = voteTheme, PlayerId = playerId, Cancel = cancel });
         }
 
         public void VoteFromNetwork(VoteTheme voteTheme, ulong playerId, bool cancel)

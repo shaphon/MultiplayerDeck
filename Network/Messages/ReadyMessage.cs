@@ -1,0 +1,11 @@
+using System.IO;
+
+namespace MultiplayerDeck.Network.Messages
+{
+    /// <summary>准备就绪消息，无负载。</summary>
+    public class ReadyMessage : NetworkMessage
+    {
+        public override void Serialize(BinaryWriter writer) { }
+        public override void Deserialize(BinaryReader reader) { }
+    }
+}

@@ -1,4 +1,5 @@
 ﻿using GameDataEditor;
+using MultiplayerDeck.Network;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -35,54 +36,33 @@ namespace MultiplayerDeck
             };
         }
 
-        public static byte[] SerializeMapPacket(NetStageMapPacket packet)
+        /// <summary>
+        /// 序列化地图数据为 XML 字节数组（不含消息头，由 MessageDispatcher 处理）。
+        /// </summary>
+        public static byte[] SerializeMapPayload(NetStageMapPacket packet)
         {
             var serializer = new XmlSerializer(typeof(NetStageMapPacket), ExtraTypes);
-
-            byte[] payload;
 
             using (var payloadStream = new MemoryStream())
             using (var writer = new StreamWriter(payloadStream, Encoding.UTF8))
             {
                 serializer.Serialize(writer, packet);
                 writer.Flush();
-                payload = payloadStream.ToArray();
-            }
-
-            using (var ms = new MemoryStream())
-            using (var bw = new BinaryWriter(ms))
-            {
-                bw.Write((int)NetDataType.StageMap);
-                bw.Write(payload.Length);
-                bw.Write(payload);
-                return ms.ToArray();
+                return payloadStream.ToArray();
             }
         }
 
-        public static NetStageMapPacket DeserializeMapPacket(byte[] bytes)
+        /// <summary>
+        /// 从 XML 字节数组反序列化地图数据（不含消息头）。
+        /// </summary>
+        public static NetStageMapPacket DeserializeMapPacketFromPayload(byte[] payload)
         {
-            using (var ms = new MemoryStream(bytes))
-            using (var br = new BinaryReader(ms))
+            var serializer = new XmlSerializer(typeof(NetStageMapPacket), ExtraTypes);
+
+            using (var payloadStream = new MemoryStream(payload))
+            using (var reader = new StreamReader(payloadStream, Encoding.UTF8))
             {
-                NetDataType type = (NetDataType)br.ReadInt32();
-
-                if (type != NetDataType.StageMap)
-                    throw new InvalidOperationException("Invalid packet type: " + type);
-
-                int payloadLength = br.ReadInt32();
-
-                if (payloadLength < 0 || payloadLength > ms.Length - ms.Position)
-                    throw new InvalidOperationException("Invalid payload length: " + payloadLength);
-
-                byte[] payload = br.ReadBytes(payloadLength);
-
-                var serializer = new XmlSerializer(typeof(NetStageMapPacket), ExtraTypes);
-
-                using (var payloadStream = new MemoryStream(payload))
-                using (var reader = new StreamReader(payloadStream, Encoding.UTF8))
-                {
-                    return (NetStageMapPacket)serializer.Deserialize(reader);
-                }
+                return (NetStageMapPacket)serializer.Deserialize(reader);
             }
         }
 

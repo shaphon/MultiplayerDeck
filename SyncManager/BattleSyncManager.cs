@@ -1,4 +1,6 @@
 ﻿using GameDataEditor;
+using MultiplayerDeck.Network;
+using MultiplayerDeck.Network.Messages;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -112,7 +114,7 @@ namespace MultiplayerDeck
                 return;
             }
 
-            NetworkHelper.SendRequestDraw(count);
+            MessageDispatcher.Send(new RequestDrawMessage { Count = count });
         }
 
         public void ReceiveDrawRequest(RemotePlayer player, int count)
@@ -155,9 +157,9 @@ namespace MultiplayerDeck
             deckStateVersion++;
             lastDeckHash = SkillListHash(team.Skills_Deck);
             lastUsedHash = SkillListHash(team.Skills_UsedDeck);
-            NetworkHelper.SendDrawResult(player.steamUser.m_SteamID, deckStateVersion, cards);
-            NetworkHelper.SendDeckState(team.Skills_Deck, false);
-            NetworkHelper.SendDeckState(team.Skills_UsedDeck, true);
+            MessageDispatcher.Send(new DrawResultMessage { TargetPlayerId = player.steamUser.m_SteamID, Version = deckStateVersion, Cards = cards });
+            MessageDispatcher.Send(new DeckStateMessage { Version = deckStateVersion, UsedDeck = false, Skills = team.Skills_Deck });
+            MessageDispatcher.Send(new DeckStateMessage { Version = deckStateVersion, UsedDeck = true, Skills = team.Skills_UsedDeck });
         }
 
         public void ApplyDrawResult(ulong targetPlayerId, int version, List<SkillNetworkDTO> cards)
@@ -232,7 +234,7 @@ namespace MultiplayerDeck
 
             deckStateVersion++;
             UpdateDeckHashes();
-            NetworkHelper.SendDeckState(targetDeck, usedDeck);
+            MessageDispatcher.Send(new DeckStateMessage { Version = deckStateVersion, UsedDeck = usedDeck, Skills = targetDeck });
             //Debug.Log("[DeckSync] Accepted DeckMutationReport. player=" + player.userName + ", usedDeck=" + usedDeck + ", count=" + newDeck.Count + ", version=" + deckStateVersion);
         }
 
@@ -313,12 +315,12 @@ namespace MultiplayerDeck
             if (deckChange)
             {
                 deckStateVersion++;
-                NetworkHelper.SendDeckState(team.Skills_Deck, false);
+                MessageDispatcher.Send(new DeckStateMessage { Version = deckStateVersion, UsedDeck = false, Skills = team.Skills_Deck });
             }
             if (usedChange)
             {
                 deckStateVersion++;
-                NetworkHelper.SendDeckState(team.Skills_UsedDeck, true);
+                MessageDispatcher.Send(new DeckStateMessage { Version = deckStateVersion, UsedDeck = true, Skills = team.Skills_UsedDeck });
             }
             
         }
@@ -349,11 +351,11 @@ namespace MultiplayerDeck
 
             if (deckChange)
             {
-                NetworkHelper.SendDeckMutationReport(team.Skills_Deck, false);
+                MessageDispatcher.Send(new DeckMutationReportMessage { UsedDeck = false, Skills = team.Skills_Deck });
             }
             if (usedChange)
             {
-                NetworkHelper.SendDeckMutationReport(team.Skills_UsedDeck, true);
+                MessageDispatcher.Send(new DeckMutationReportMessage { UsedDeck = true, Skills = team.Skills_UsedDeck });
             }
         }
 
@@ -380,7 +382,7 @@ namespace MultiplayerDeck
                 }
                 if (newTurnActionNum > 0)
                 {
-                    NetworkHelper.SendTurnActionNum(newTurnActionNum);
+                    MessageDispatcher.Send(new TurnActionNumMessage { Value = newTurnActionNum });
                 }
             }
         }
@@ -572,7 +574,7 @@ namespace MultiplayerDeck
                 {
                     Debug.Log("[DeckSync] Host sending request for battle start deck");
 
-                    NetworkHelper.SendData(NetDataType.RequestForBattleStartDeck);
+                    MessageDispatcher.Send(new RequestForBattleStartDeckMessage());
                     yield return new WaitForSecondsRealtime(1f);
                 }
             }
@@ -588,13 +590,11 @@ namespace MultiplayerDeck
             int deckCount = BattleSystem.instance.AllyTeam?.Skills_Deck?.Count ?? 0;
             Debug.Log("[DeckSync] Client received request. Send personal deck count: " + deckCount);
 
-            MemoryStream memoryStream = new MemoryStream();
-            using (BinaryWriter binaryWriter = new BinaryWriter(memoryStream))
+            var service = NetworkHelper.Service();
+            if (service != null)
             {
-                binaryWriter.Write((int)NetDataType.BattleStartDeck);
-                SkillSerializer.SkillListSerialize(binaryWriter, BattleSystem.instance.AllyTeam.Skills_Deck);
+                MessageDispatcher.SendVia(new BattleStartDeckMessage { IsDto = false, Deck = BattleSystem.instance.AllyTeam.Skills_Deck }, service);
             }
-            NetworkHelper.Service()?.SendPacket(memoryStream.ToArray());
 
             deckSent = true;
         }
@@ -649,13 +649,11 @@ namespace MultiplayerDeck
 
             Debug.Log("[DeckSync] Host sending combined DTO count: " + combinedDeck.Count);
 
-            MemoryStream memoryStream = new MemoryStream();
-            using (BinaryWriter binaryWriter = new BinaryWriter(memoryStream))
+            var service = NetworkHelper.Service();
+            if (service != null)
             {
-                binaryWriter.Write((int)NetDataType.BattleStartDeck);
-                SkillSerializer.SkillDTOListSerialize(binaryWriter, combinedDeck);
+                MessageDispatcher.SendVia(new BattleStartDeckMessage { IsDto = true, DeckDto = combinedDeck }, service);
             }
-            NetworkHelper.Service()?.SendPacket(memoryStream.ToArray());
         }
 
         public void ReceiveCombinedDeck(RemotePlayer player, List<Skill> deck)

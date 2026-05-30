@@ -1,7 +1,9 @@
+using MultiplayerDeck.Network;
+using MultiplayerDeck.Network.Messages;
 using Steamworks;
 using UnityEngine;
 
-namespace MultiplayerDeck
+namespace MultiplayerDeck.Network
 {
     public class SteamCallbacks
     {
@@ -75,13 +77,13 @@ namespace MultiplayerDeck
                 TogetherManager.players = TogetherManager.currentLobby.GetLobbyMembers();
                 NetworkHelper.AddPlayer(TogetherManager.currentUser);
                 VoteManager.Instance.SyncPlayersWithLobby();
-                NetworkHelper.SendData(NetDataType.Version);
+                MessageDispatcher.Send(new VersionMessage());
             }
             else
             {
                 Debug.Log(">>>");
             }
-            NetworkHelper.SendData(NetDataType.Version);
+            MessageDispatcher.Send(new VersionMessage());
         }
 
         public static void onLobbyEnter(LobbyEnter_t callback)
@@ -107,8 +109,8 @@ namespace MultiplayerDeck
             if ((int)even == 1)
             {
                 NetworkHelper.AddPlayer(new RemotePlayer(targetPlayer));
-                NetworkHelper.SendData(NetDataType.Version);
-                NetworkHelper.SendData(NetDataType.Ready);
+                MessageDispatcher.Send(new VersionMessage());
+                MessageDispatcher.Send(new ReadyMessage());
                 MultiLucySkelController.TryCreateRemotePlayer(targetPlayer.m_SteamID);
             }
             RemotePlayer player = SteamIntegration.GetPlayer(targetPlayer);
@@ -189,7 +191,7 @@ namespace MultiplayerDeck
             TogetherManager.players = TogetherManager.currentLobby.GetLobbyMembers();
             NetworkHelper.AddPlayer(new RemotePlayer(SteamMatchmaking.GetLobbyOwner(new CSteamID(lobby))));
             NetworkHelper.UpdateLobbyData();
-            NetworkHelper.SendData(NetDataType.Version);
+            MessageDispatcher.Send(new VersionMessage());
         }
 
         public static void onLobbyCreated(LobbyCreated_t callback)

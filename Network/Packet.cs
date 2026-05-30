@@ -1,4 +1,4 @@
-namespace MultiplayerDeck
+namespace MultiplayerDeck.Network
 {
 	public class Packet
 	{

@@ -1,5 +1,7 @@
 ﻿using ChronoArkMod;
 using GameDataEditor;
+using MultiplayerDeck.Network;
+using MultiplayerDeck.Network.Messages;
 using NLog.Targets;
 using Spine;
 using System;
@@ -45,36 +47,31 @@ namespace MultiplayerDeck
 
         protected void SendSkillEffect(Skill SkillD, List<BattleChar> Targets)
         {
-            MemoryStream memoryStream = new MemoryStream();
-            using (BinaryWriter binaryWriter = new BinaryWriter(memoryStream))
+            var msg = new NetworkSkillEffectMessage
             {
-                binaryWriter.Write((int)NetDataType.NetWorkSkillEffect);
-                binaryWriter.Write(string.IsNullOrEmpty(SkillD.MySkill.KeyID) ? SkillD.MySkill.Key : SkillD.MySkill.KeyID);
+                SkillKey = string.IsNullOrEmpty(SkillD.MySkill.KeyID) ? SkillD.MySkill.Key : SkillD.MySkill.KeyID,
+            };
 
-                binaryWriter.Write(Targets == null ? (int)0 : Targets.Count);
-                if (Targets != null)
+            if (Targets != null)
+            {
+                foreach (BattleChar target in Targets)
                 {
-                    foreach (BattleChar target in Targets)
-                    {
-                        TargetInformation targetInformation = TargetHelper.GetCertainTargetInformation(target);
-                        binaryWriter.Write(targetInformation.isEnemy);
-                        binaryWriter.Write(targetInformation.key);
-                        binaryWriter.Write(targetInformation.position);
-                    }
-                }
-
-                binaryWriter.Write(CustomNumbers.Count);
-                foreach (int number in CustomNumbers)
-                {
-                    binaryWriter.Write(number);
+                    TargetInformation info = TargetHelper.GetCertainTargetInformation(target);
+                    msg.Targets.Add(new NetworkSkillEffectMessage.TargetInfo(info.isEnemy, info.key, info.position));
                 }
             }
-            NetworkHelper.Service()?.SendPacket(memoryStream.ToArray());
+
+            foreach (int number in CustomNumbers)
+                msg.CustomNumbers.Add(number);
+
+            MessageDispatcher.Send(msg);
         }
 
-        public static bool ApplySkillEffect(BinaryReader binaryReader)
+        /// <summary>
+        /// 应用远程技能效果（从已反序列化的数据）。
+        /// </summary>
+        public static bool ApplySkillEffect(string skillKey, List<(bool isEnemy, string key, int position)> targetInfos, List<int> customNumbers)
         {
-            string skillKey = binaryReader.ReadString();
             Type type = ModManager.GetType(skillKey);
             if (type == null)
             {
@@ -89,24 +86,18 @@ namespace MultiplayerDeck
             SkillExtended_Network extended = (SkillExtended_Network)Activator.CreateInstance(type);
 
             List<BattleChar> targets = new List<BattleChar>();
-            int targetCount = binaryReader.ReadInt32();
-            for (int i = 0; i < targetCount; i++)
+            if (targetInfos != null)
             {
-                bool isEnemy = binaryReader.ReadBoolean();
-                string key = binaryReader.ReadString();
-                int position = binaryReader.ReadInt32();
-                BattleChar target = TargetHelper.FindCertainTarget(isEnemy, key, position);
-                if (target != null)
+                foreach (var info in targetInfos)
                 {
-                    targets.Add(target);
+                    BattleChar target = TargetHelper.FindCertainTarget(info.isEnemy, info.key, info.position);
+                    if (target != null)
+                        targets.Add(target);
                 }
             }
 
-            int numberCount = binaryReader.ReadInt32();
-            for (int i = 0; i < numberCount; i++)
-            {
-                extended.CustomNumbers.Add(binaryReader.ReadInt32());
-            }
+            if (customNumbers != null)
+                extended.CustomNumbers.AddRange(customNumbers);
 
             extended.RemoteSkillEffect(targets);
             return true;

@@ -1,4 +1,6 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿using System;
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿using MultiplayerDeck.Network;
+using MultiplayerDeck.Network.Messages;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -134,7 +136,7 @@ namespace MultiplayerDeck
                 bool isMoving = __instance.Movevec != Vector2.zero;
                 bool facingRight = __instance.Spinedata != null && __instance.Spinedata.transform.localScale.x > 0;
                 string skinName = __instance.Spinedata != null ? __instance.Spinedata.initialSkinName : "skin_1";
-                NetworkHelper.SendPosition(__instance.transform.position, jumpY, isMoving, facingRight, skinName);
+                MessageDispatcher.Send(new PlayerPositionMessage { X = __instance.transform.position.x, Y = __instance.transform.position.y, JumpY = jumpY, Timestamp = Time.time, IsMoving = isMoving, FacingRight = facingRight, SkinName = skinName });
             }
         }
         #endregion
