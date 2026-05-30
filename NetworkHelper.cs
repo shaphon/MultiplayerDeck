@@ -33,7 +33,8 @@ namespace MultiplayerDeck
 		MonsterClear,
 		BossClear,
 		LobbyClosed,
-		NetWorkSkillEffect
+		NetWorkSkillEffect,
+		PlayerPosition
 	}
 
 	public class NetworkHelper
@@ -251,6 +252,7 @@ namespace MultiplayerDeck
 							if (TogetherManager.currentLobby != null && TogetherManager.currentLobby.steamID.m_SteamID == lobbyId)
 							{
 								Debug.Log("[MultiplayerDeck] Lobby closed by owner: " + reason);
+								MultiLucySkelController.CleanupAllRemotePlayers();
 								TogetherManager.ClearMultiplayerData();
 								VoteManager.Instance.AbortAllVotes();
 							}
@@ -269,6 +271,22 @@ namespace MultiplayerDeck
 						case NetDataType.NetWorkSkillEffect:
 						{
 							SkillExtended_Network.ApplySkillEffect(binaryReader);
+							break;
+						}
+
+						case NetDataType.PlayerPosition:
+						{
+							float x = binaryReader.ReadSingle();
+							float y = binaryReader.ReadSingle();
+							float jumpY = binaryReader.ReadSingle();
+							float timestamp = binaryReader.ReadSingle();
+							bool isMoving = binaryReader.ReadBoolean();
+							bool facingRight = binaryReader.ReadBoolean();
+							string skinName = binaryReader.ReadString();
+							if (playerInfo != null)
+							{
+								MultiLucySkelController.OnReceiveRemoteState(playerInfo.steamUser.m_SteamID, new Vector2(x, y), jumpY, timestamp, isMoving, facingRight, skinName);
+							}
 							break;
 						}
 
@@ -461,6 +479,23 @@ namespace MultiplayerDeck
             Service()?.SendPacket(memoryStream.ToArray());
         }
 
+		public static void SendPosition(Vector2 pos, float jumpY, bool isMoving, bool facingRight, string skinName = null)
+		{
+			MemoryStream memoryStream = new MemoryStream();
+			using (BinaryWriter binaryWriter = new BinaryWriter(memoryStream))
+			{
+				binaryWriter.Write((int)NetDataType.PlayerPosition);
+				binaryWriter.Write(pos.x);
+				binaryWriter.Write(pos.y);
+				binaryWriter.Write(jumpY);
+				binaryWriter.Write(Time.time);
+				binaryWriter.Write(isMoving);
+				binaryWriter.Write(facingRight);
+				binaryWriter.Write(skinName ?? string.Empty);
+			}
+			Service()?.SendPacket(memoryStream.ToArray());
+		}
+
 		public static void SendLobbyClosed(string reason)
 		{
 			if (TogetherManager.currentLobby == null)
@@ -534,6 +569,7 @@ namespace MultiplayerDeck
 					TogetherManager.currentLobby.NewOwner();
 				}
 				TogetherManager.currentLobby.LeaveLobby();
+				MultiLucySkelController.CleanupAllRemotePlayers();
 				TogetherManager.ClearMultiplayerData();
 				VoteManager.Instance.AbortAllVotes();
 			}
@@ -553,11 +589,10 @@ namespace MultiplayerDeck
 			}
 
 			SendLobbyClosed("Owner disbanded lobby");
-			//SendLobbyClosed("Owner disbanded lobby");
-			//SendLobbyClosed("Owner disbanded lobby");
 			TogetherManager.currentLobby.SetJoinable(false);
 			TogetherManager.currentLobby.SetPrivate(true);
 			TogetherManager.currentLobby.LeaveLobby();
+			MultiLucySkelController.CleanupAllRemotePlayers();
 			TogetherManager.ClearMultiplayerData();
 			VoteManager.Instance.AbortAllVotes();
 		}

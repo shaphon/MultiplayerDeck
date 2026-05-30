@@ -371,6 +371,8 @@ namespace MultiplayerDeck
                 {
                     NetworkHelper.SendData(NetDataType.NextStageComplete);
                 }
+
+                MultiLucySkelController.InitializeRemotePlayers();
             }
         }
 
