@@ -1,0 +1,30 @@
+namespace MultiplayerDeck.Network
+{
+    public enum NetDataType
+    {
+        Version,
+        Ready,
+        Test,
+        BattleStart,
+        BattleStartDeck,
+        RequestForBattleStartDeck,
+        DeckState,
+        DeckMutationReport,
+        RequestDraw,
+        DrawResult,
+        EnemyHP,
+        TurnActionNum,
+        ExchangeSkill,
+        SkillPlayed,
+        VoteStart,
+        Vote,
+        StageMap,
+        NextStageComplete,
+        MonsterClear,
+        BossClear,
+        LobbyClosed,
+        NetWorkSkillEffect,
+        PlayerPosition,
+        BuffAdd
+    }
+}

@@ -125,10 +125,10 @@ namespace MultiplayerDeck.Network.Messages
 
             Type type = message.GetType();
             if (!_typeToId.TryGetValue(type, out int msgId))
-            {
+                {
                 Debug.LogError($"[MessageDispatcher] Unregistered message type: {type.FullName}");
                 return;
-            }
+                }
 
             message.MessageId = msgId;
 
