@@ -1,4 +1,5 @@
 ﻿using GameDataEditor;
+using MultiplayerDeck.Network;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -112,7 +113,7 @@ namespace MultiplayerDeck
                 return;
             }
 
-            NetworkHelper.SendRequestDraw(count);
+            MessageSerializer.SendRequestDraw(count);
         }
 
         public void ReceiveDrawRequest(RemotePlayer player, int count)
@@ -155,9 +156,9 @@ namespace MultiplayerDeck
             deckStateVersion++;
             lastDeckHash = SkillListHash(team.Skills_Deck);
             lastUsedHash = SkillListHash(team.Skills_UsedDeck);
-            NetworkHelper.SendDrawResult(player.steamUser.m_SteamID, deckStateVersion, cards);
-            NetworkHelper.SendDeckState(team.Skills_Deck, false);
-            NetworkHelper.SendDeckState(team.Skills_UsedDeck, true);
+            MessageSerializer.SendDrawResult(player.steamUser.m_SteamID, deckStateVersion, cards);
+            MessageSerializer.SendDeckState(team.Skills_Deck, false);
+            MessageSerializer.SendDeckState(team.Skills_UsedDeck, true);
         }
 
         public void ApplyDrawResult(ulong targetPlayerId, int version, List<SkillNetworkDTO> cards)
@@ -232,7 +233,7 @@ namespace MultiplayerDeck
 
             deckStateVersion++;
             UpdateDeckHashes();
-            NetworkHelper.SendDeckState(targetDeck, usedDeck);
+            MessageSerializer.SendDeckState(targetDeck, usedDeck);
             //Debug.Log("[DeckSync] Accepted DeckMutationReport. player=" + player.userName + ", usedDeck=" + usedDeck + ", count=" + newDeck.Count + ", version=" + deckStateVersion);
         }
 
@@ -313,12 +314,12 @@ namespace MultiplayerDeck
             if (deckChange)
             {
                 deckStateVersion++;
-                NetworkHelper.SendDeckState(team.Skills_Deck, false);
+                MessageSerializer.SendDeckState(team.Skills_Deck, false);
             }
             if (usedChange)
             {
                 deckStateVersion++;
-                NetworkHelper.SendDeckState(team.Skills_UsedDeck, true);
+                MessageSerializer.SendDeckState(team.Skills_UsedDeck, true);
             }
             
         }
@@ -349,11 +350,11 @@ namespace MultiplayerDeck
 
             if (deckChange)
             {
-                NetworkHelper.SendDeckMutationReport(team.Skills_Deck, false);
+                MessageSerializer.SendDeckMutationReport(team.Skills_Deck, false);
             }
             if (usedChange)
             {
-                NetworkHelper.SendDeckMutationReport(team.Skills_UsedDeck, true);
+                MessageSerializer.SendDeckMutationReport(team.Skills_UsedDeck, true);
             }
         }
 
@@ -380,7 +381,7 @@ namespace MultiplayerDeck
                 }
                 if (newTurnActionNum > 0)
                 {
-                    NetworkHelper.SendTurnActionNum(newTurnActionNum);
+                    MessageSerializer.SendTurnActionNum(newTurnActionNum);
                 }
             }
         }
@@ -572,7 +573,7 @@ namespace MultiplayerDeck
                 {
                     Debug.Log("[DeckSync] Host sending request for battle start deck");
 
-                    NetworkHelper.SendData(NetDataType.RequestForBattleStartDeck);
+                    MessageSerializer.SendData(NetDataType.RequestForBattleStartDeck);
                     yield return new WaitForSecondsRealtime(1f);
                 }
             }

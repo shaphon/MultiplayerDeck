@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using Steamworks;
 
-namespace MultiplayerDeck
+namespace MultiplayerDeck.Network
 {
     public interface ILobbyService
     {

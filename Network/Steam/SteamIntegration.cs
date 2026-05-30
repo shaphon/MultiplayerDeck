@@ -2,7 +2,7 @@ using System;
 using Steamworks;
 using UnityEngine;
 
-namespace MultiplayerDeck
+namespace MultiplayerDeck.Network
 {
 	public class SteamIntegration : ILobbyService
 	{

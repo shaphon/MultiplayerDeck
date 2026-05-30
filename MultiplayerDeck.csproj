@@ -3,7 +3,7 @@
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
     <OutputType>Library</OutputType>
-    <AssemblyName>MultiplayerDeck2026529162639</AssemblyName>
+    <AssemblyName>MultiplayerDeck202653101430</AssemblyName>
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <OutputPath>bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
@@ -12,9 +12,6 @@
     <ProjectGuid>{05E73DD2-BCD9-1528-78B9-A3BCB58FA80E}</ProjectGuid>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="0Harmony">
-      <HintPath>..\..\inferno\Assemblies\0Harmony.dll</HintPath>
-    </Reference>
     <Reference Include="Accessibility">
       <Private>False</Private>
     </Reference>
@@ -385,26 +382,65 @@
       <Private>False</Private>
     </Reference>
     <!-- Extra Reference Start-->
+    <Reference Include="0Harmony">
+      <HintPath>..\..\MultiplayerDeck\Assemblies\0Harmony.dll</HintPath>
+    </Reference>
+    <Reference Include="Mono.Cecil">
+      <HintPath>..\..\MultiplayerDeck\Assemblies\Mono.Cecil.dll</HintPath>
+    </Reference>
+    <Reference Include="Mono.Cecil.Mdb">
+      <HintPath>..\..\MultiplayerDeck\Assemblies\Mono.Cecil.Mdb.dll</HintPath>
+    </Reference>
+    <Reference Include="Mono.Cecil.Pdb">
+      <HintPath>..\..\MultiplayerDeck\Assemblies\Mono.Cecil.Pdb.dll</HintPath>
+    </Reference>
+    <Reference Include="Mono.Cecil.Rocks">
+      <HintPath>..\..\MultiplayerDeck\Assemblies\Mono.Cecil.Rocks.dll</HintPath>
+    </Reference>
+    <Reference Include="MonoMod.RuntimeDetour">
+      <HintPath>..\..\MultiplayerDeck\Assemblies\MonoMod.RuntimeDetour.dll</HintPath>
+    </Reference>
+    <Reference Include="MonoMod.Utils">
+      <HintPath>..\..\MultiplayerDeck\Assemblies\MonoMod.Utils.dll</HintPath>
+    </Reference>
 <!-- Extra Reference End-->
   </ItemGroup>
-    <!-- Compile ItemGroup Start-->
+                                <!-- Compile ItemGroup Start-->
   <ItemGroup>
     <Compile Include="MultiplayerDeckMainUI.cs" />
     <Compile Include="MultiplayerDeck_ModDefinition.cs" />
     <Compile Include="MultiplayerDeck_ModItemKeys.cs" />
     <Compile Include="MultiplayerDeck_Plugin.cs" />
-    <Compile Include="NetworkHelper.cs" />
-    <Compile Include="Packet.cs" />
-    <Compile Include="RemotePlayer.cs" />
-    <Compile Include="SteamCallbacks.cs" />
-    <Compile Include="SteamIntegration.cs" />
-    <Compile Include="SteamLobby.cs" />
     <Compile Include="TogetherManager.cs" />
     <Compile Include="VoteManager.cs" />
     <Compile Include="Buff\B_MultiplayerDeck_LifeLink.cs" />
+    <Compile Include="BuffSyncAPI\BuffSyncRegistry.cs" />
+    <Compile Include="MultiLucySkelController\MultiLucySkelController.cs" />
+    <Compile Include="MultiLucySkelController\MultiLucySkelControllerTest.cs" />
+    <Compile Include="MultiLucySkelController\PlayerNameTag.cs" />
+    <Compile Include="Network\Interfaces.cs" />
+    <Compile Include="Network\MessageSerializer.cs" />
+    <Compile Include="Network\NetDataType.cs" />
+    <Compile Include="Network\NetworkHelper.cs" />
+    <Compile Include="Network\Packet.cs" />
+    <Compile Include="Network\RemotePlayer.cs" />
+    <Compile Include="Network\Lan\LanLobby.cs" />
+    <Compile Include="Network\Lan\LanManager.cs" />
+    <Compile Include="Network\Messages\BattleMessageHandler.cs" />
+    <Compile Include="Network\Messages\BuffMessageHandler.cs" />
+    <Compile Include="Network\Messages\IMessageHandler.cs" />
+    <Compile Include="Network\Messages\LobbyMessageHandler.cs" />
+    <Compile Include="Network\Messages\MessageDispatcher.cs" />
+    <Compile Include="Network\Messages\PlayerMessageHandler.cs" />
+    <Compile Include="Network\Messages\StageMessageHandler.cs" />
+    <Compile Include="Network\Messages\VoteMessageHandler.cs" />
+    <Compile Include="Network\Steam\SteamCallbacks.cs" />
+    <Compile Include="Network\Steam\SteamIntegration.cs" />
+    <Compile Include="Network\Steam\SteamLobby.cs" />
     <Compile Include="obj\Debug\.NETFramework,Version=v4.7.2.AssemblyAttributes.cs" />
     <Compile Include="Skill\SkillExtended_Network.cs" />
     <Compile Include="SyncManager\BattleSyncManager.cs" />
+    <Compile Include="SyncManager\BuffSyncManager.cs" />
     <Compile Include="SyncManager\SkillSerializer.cs" />
     <Compile Include="SyncManager\StageMapSerializer.cs" />
     <Compile Include="SyncManager\StageSyncManager.cs" />

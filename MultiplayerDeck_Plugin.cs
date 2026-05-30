@@ -2,6 +2,7 @@ using ChronoArkMod;
 using ChronoArkMod.Plugin;
 using GameDataEditor;
 using HarmonyLib;
+using MultiplayerDeck.Network;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -134,7 +135,7 @@ namespace MultiplayerDeck
                 if (__instance.BClickWaste)
                 {
                     int seed = __instance.Myskill.CharinfoSkilldata.Seed;
-                    NetworkHelper.SendExchangeSkill(BattleSyncManager.RandomOtherPlayerId(), __instance.Myskill.CloneSkill(true));
+                    MessageSerializer.SendExchangeSkill(BattleSyncManager.RandomOtherPlayerId(), __instance.Myskill.CloneSkill(true));
                     BattleSystem.instance.StartCoroutine(RemoveWastedSkill());
                     IEnumerator RemoveWastedSkill()
                     {
@@ -182,7 +183,7 @@ namespace MultiplayerDeck
                 {
                     return;
                 }
-                NetworkHelper.SendBattleStart(QueueData.Key, NomalBattle, curse, RewardKey, Preset, NoGameOver);
+                MessageSerializer.SendBattleStart(QueueData.Key, NomalBattle, curse, RewardKey, Preset, NoGameOver);
             }
         }
 
@@ -370,7 +371,7 @@ namespace MultiplayerDeck
                 }
                 else
                 {
-                    NetworkHelper.SendData(NetDataType.NextStageComplete);
+                    MessageSerializer.SendData(NetDataType.NextStageComplete);
                 }
 
                 MultiLucySkelController.InitializeRemotePlayers();
@@ -388,7 +389,7 @@ namespace MultiplayerDeck
                 {
                     return;
                 }
-                NetworkHelper.SendMonsterClear(Pos);
+                MessageSerializer.SendMonsterClear(Pos);
             }
         }
 
@@ -407,7 +408,7 @@ namespace MultiplayerDeck
                 if (value && !StageSyncManager.Instance.bossClear)
                 {
                     StageSyncManager.Instance.bossClear = true;
-                    NetworkHelper.SendData(NetDataType.BossClear);
+                    MessageSerializer.SendData(NetDataType.BossClear);
                 }
             }
 
@@ -423,7 +424,7 @@ namespace MultiplayerDeck
                 if (value && !StageSyncManager.Instance.bossClear)
                 {
                     StageSyncManager.Instance.bossClear = true;
-                    NetworkHelper.SendData(NetDataType.BossClear);
+                    MessageSerializer.SendData(NetDataType.BossClear);
                 }
             }
         }

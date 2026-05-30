@@ -5,6 +5,7 @@ using ChronoArkMod.Template;
 using DarkTonic.MasterAudio;
 using GameDataEditor;
 using I2.Loc;
+using MultiplayerDeck.Network;
 using Spine;
 using System;
 using System.Collections;
@@ -55,7 +56,7 @@ namespace MultiplayerDeck
         {
             if (SkillD.Master.Info.Ally)
             {
-                NetworkHelper.SendSkillPlayed(SkillD.MySkill.Name);
+                MessageSerializer.SendSkillPlayed(SkillD.MySkill.Name);
             }
             yield break;
         }

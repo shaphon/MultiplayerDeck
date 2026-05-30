@@ -1,3 +1,4 @@
+using MultiplayerDeck.Network;
 using UnityEngine;
 using UnityEngine.UI;
 using System;
@@ -42,7 +43,7 @@ namespace MultiplayerDeck
             {
                 string key = this.BChar.Info.KeyData;
                 int position = BattleSystem.instance.EnemyTeam.AliveChars.FindAll(enemy => enemy.Info.KeyData == key).FindIndex(enemy => enemy == this.BChar);
-                NetworkHelper.SendEnemyHpChange(key, position, NewHPNum);
+                MessageSerializer.SendEnemyHpChange(key, position, NewHPNum);
             }
         }
     }

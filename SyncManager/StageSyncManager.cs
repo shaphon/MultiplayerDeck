@@ -1,5 +1,6 @@
 ﻿using DarkTonic.MasterAudio;
 using GameDataEditor;
+using MultiplayerDeck.Network;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -116,7 +117,7 @@ namespace MultiplayerDeck
 
             if (playersNextStageComplete.Count == TogetherManager.players.Count - 1)
             {
-                NetworkHelper.SendData(NetDataType.NextStageComplete);
+                MessageSerializer.SendData(NetDataType.NextStageComplete);
                 VoteManager.Instance.syncing = false;
             }
         }
