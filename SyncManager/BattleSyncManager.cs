@@ -8,6 +8,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Web.Services.Description;
 using UnityEngine;
 
 namespace MultiplayerDeck
@@ -590,11 +591,7 @@ namespace MultiplayerDeck
             int deckCount = BattleSystem.instance.AllyTeam?.Skills_Deck?.Count ?? 0;
             Debug.Log("[DeckSync] Client received request. Send personal deck count: " + deckCount);
 
-            var service = NetworkHelper.Service();
-            if (service != null)
-            {
-                MessageDispatcher.SendVia(new BattleStartDeckMessage { IsDto = false, Deck = BattleSystem.instance.AllyTeam.Skills_Deck }, service);
-            }
+            MessageDispatcher.Send(new BattleStartDeckMessage { IsDto = false, Deck = BattleSystem.instance.AllyTeam.Skills_Deck });
 
             deckSent = true;
         }
@@ -648,12 +645,7 @@ namespace MultiplayerDeck
             }
 
             Debug.Log("[DeckSync] Host sending combined DTO count: " + combinedDeck.Count);
-
-            var service = NetworkHelper.Service();
-            if (service != null)
-            {
-                MessageDispatcher.SendVia(new BattleStartDeckMessage { IsDto = true, DeckDto = combinedDeck }, service);
-            }
+            MessageDispatcher.Send(new BattleStartDeckMessage { IsDto = true, DeckDto = combinedDeck });
         }
 
         public void ReceiveCombinedDeck(RemotePlayer player, List<Skill> deck)

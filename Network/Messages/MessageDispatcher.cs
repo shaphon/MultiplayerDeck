@@ -116,36 +116,7 @@ namespace MultiplayerDeck.Network.Messages
             NetworkHelper.SendToAll(ms.ToArray());
         }
 
-        /// <summary>
-        /// 序列化并通过指定 service 发送（用于需要指定传输通道的场景）。
-        /// </summary>
-        public static void SendVia(NetworkMessage message, SteamIntegration service)
-        {
-            if (message == null || service == null) return;
-
-            Type type = message.GetType();
-            if (!_typeToId.TryGetValue(type, out int msgId))
-                {
-                Debug.LogError($"[MessageDispatcher] Unregistered message type: {type.FullName}");
-                return;
-                }
-
-            message.MessageId = msgId;
-
-            MemoryStream ms = new MemoryStream();
-            using (BinaryWriter bw = new BinaryWriter(ms))
-            {
-                bw.Write(msgId);
-                message.Serialize(bw);
-            }
-            service.SendPacket(ms.ToArray());
-        }
-
-        // ============ Receive ============
-
-        /// <summary>
-        /// 接收一条消息。由 NetworkHelper.Update() 调用。
-        /// </summary>
+       
         public static void Dispatch(byte[] data, RemotePlayer sender)
         {
             // 过滤自己发送的消息
